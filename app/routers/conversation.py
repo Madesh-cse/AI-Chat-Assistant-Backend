@@ -1,4 +1,6 @@
 from fastapi import APIRouter, HTTPException  # type: ignore
+from pydantic import BaseModel  # type: ignore
+from sqlalchemy.orm import Session  # type: ignore
 
 from app.db.database import SessionLocal
 
@@ -9,28 +11,19 @@ from app.Schemas.conversation import (
     ConversationResponse,
 )
 
-
-# ============================================================
 # ROUTER
-# ============================================================
 
 router = APIRouter(
     prefix="/conversations",
     tags=["Conversations"],
 )
 
-
-# ============================================================
 # TEMPORARY USER
-# ============================================================
 
 DEFAULT_USER_ID = 1
 
 
-# ============================================================
 # CREATE CONVERSATION
-# ============================================================
-
 @router.post(
     "/",
     response_model=ConversationResponse,
@@ -86,17 +79,11 @@ def create_conversation(
 
         db.rollback()
 
-        print(
-            "\n========================================"
-        )
+        print("\n========================================")
 
-        print(
-            "CREATE CONVERSATION ERROR"
-        )
+        print("CREATE CONVERSATION ERROR")
 
-        print(
-            "========================================"
-        )
+        print("========================================")
 
         print(e)
 
@@ -110,9 +97,8 @@ def create_conversation(
         db.close()
 
 
-# ============================================================
 # GET ALL CONVERSATIONS
-# ============================================================
+
 
 @router.get(
     "/",
@@ -133,17 +119,11 @@ def get_conversations():
 
     except Exception as e:
 
-        print(
-            "\n========================================"
-        )
+        print("\n========================================")
 
-        print(
-            "GET CONVERSATIONS ERROR"
-        )
+        print("GET CONVERSATIONS ERROR")
 
-        print(
-            "========================================"
-        )
+        print("========================================")
 
         print(e)
 
@@ -157,9 +137,8 @@ def get_conversations():
         db.close()
 
 
-# ============================================================
 # GET SINGLE CONVERSATION
-# ============================================================
+
 
 @router.get(
     "/{conversation_id}",
@@ -173,12 +152,10 @@ def get_conversation(
 
     try:
 
-        conversation = (
-            ChatDatabase.get_conversation_for_user(
-                db=db,
-                conversation_id=conversation_id,
-                user_id=DEFAULT_USER_ID,
-            )
+        conversation = ChatDatabase.get_conversation_for_user(
+            db=db,
+            conversation_id=conversation_id,
+            user_id=DEFAULT_USER_ID,
         )
 
         if not conversation:
@@ -196,17 +173,11 @@ def get_conversation(
 
     except Exception as e:
 
-        print(
-            "\n========================================"
-        )
+        print("\n========================================")
 
-        print(
-            "GET CONVERSATION ERROR"
-        )
+        print("GET CONVERSATION ERROR")
 
-        print(
-            "========================================"
-        )
+        print("========================================")
 
         print(e)
 
@@ -220,9 +191,109 @@ def get_conversation(
         db.close()
 
 
+# UPDATE CONVERSATION TITLE
+
 # ============================================================
+# UPDATE CONVERSATION TITLE
+# ============================================================
+
+
+class UpdateConversationTitle(BaseModel):
+
+    title: str
+
+
+@router.patch(
+    "/{conversation_id}/title",
+)
+def update_conversation_title(
+    conversation_id: int,
+    request: UpdateConversationTitle,
+):
+
+    db = SessionLocal()
+
+    try:
+
+        # VERIFY CONVERSATION
+
+        conversation = ChatDatabase.get_conversation_for_user(
+            db=db,
+            conversation_id=conversation_id,
+            user_id=DEFAULT_USER_ID,
+        )
+
+        if not conversation:
+
+            raise HTTPException(
+                status_code=404,
+                detail="Conversation not found",
+            )
+
+        # VALIDATE TITLE
+        title = request.title.strip()
+
+        if not title:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Conversation title cannot be empty",
+            )
+
+        # Optional: limit title length
+        title = title[:100]
+
+        # UPDATE TITLE
+
+        conversation.title = title
+
+        db.commit()
+
+        db.refresh(conversation)
+
+        print("\n========================================")
+        print("CONVERSATION TITLE UPDATED")
+        print("========================================")
+
+        print(
+            "Conversation ID:",
+            conversation_id,
+        )
+
+        print(
+            "New Title:",
+            conversation.title,
+        )
+
+        # RESPONSE
+        return conversation
+
+    except HTTPException:
+
+        raise
+
+    except Exception as e:
+
+        db.rollback()
+
+        print("\n========================================")
+        print("UPDATE CONVERSATION TITLE ERROR")
+        print("========================================")
+
+        print(e)
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e),
+        )
+
+    finally:
+
+        db.close()
+
+
 # DELETE CONVERSATION
-# ============================================================
+
 
 @router.delete(
     "/{conversation_id}",
@@ -239,12 +310,10 @@ def delete_conversation(
         # Verify conversation belongs to user
         # ----------------------------------------------------
 
-        conversation = (
-            ChatDatabase.get_conversation_for_user(
-                db=db,
-                conversation_id=conversation_id,
-                user_id=DEFAULT_USER_ID,
-            )
+        conversation = ChatDatabase.get_conversation_for_user(
+            db=db,
+            conversation_id=conversation_id,
+            user_id=DEFAULT_USER_ID,
         )
 
         if not conversation:
@@ -284,17 +353,11 @@ def delete_conversation(
 
         db.rollback()
 
-        print(
-            "\n========================================"
-        )
+        print("\n========================================")
 
-        print(
-            "DELETE CONVERSATION ERROR"
-        )
+        print("DELETE CONVERSATION ERROR")
 
-        print(
-            "========================================"
-        )
+        print("========================================")
 
         print(e)
 
