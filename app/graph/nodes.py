@@ -1,7 +1,5 @@
 from app.services.llm import llm_with_tools
 
-from langchain_core.messages import (HumanMessage) # type: ignore
-
 from .state import ChatState
 
 
@@ -11,23 +9,9 @@ def llm_node(state: ChatState) -> dict:
     print("LLM NODE")
     print("==============================")
 
-    message = state.get("message", "")
-
-    print("USER:", message)
-
-    # GET EXISTING MESSAGES
-
     messages = state.get("messages", [])
 
-    # FIRST LLM CALL
-
-    if not messages:
-
-        messages = [
-            HumanMessage(
-                content=message
-            )
-        ]
+    print("\nMESSAGE COUNT:", len(messages))
 
     # CALL LLM
 
@@ -37,15 +21,12 @@ def llm_node(state: ChatState) -> dict:
 
     print("\nAI RESPONSE:")
     print(response.content)
-
     print("\nTOOL CALLS:")
     print(response.tool_calls)
 
-    # RETURN UPDATED STATE
+    # UPDATE MESSAGE HISTORY
 
     return {
-
-        "message": message,
         "response": response.content,
         "messages": [
             *messages,
