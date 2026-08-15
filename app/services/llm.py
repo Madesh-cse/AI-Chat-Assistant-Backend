@@ -5,6 +5,9 @@ from app.tools.news import get_news
 from app.tools.wikipedia import search_wikipedia
 from app.tools.web_search import web_search
 from app.tools.movie import get_movie
+from app.tools.stackoverflow import (
+    search_stackoverflow,
+)
 
 llm = ChatOllama(
     model = "qwen2.5:3b",
@@ -12,5 +15,6 @@ llm = ChatOllama(
     
 )
 llm_with_tools = llm.bind_tools(
-    [get_weather,get_city_image, get_news,search_wikipedia,web_search,get_movie,]
+    [get_weather,get_city_image, get_news,search_wikipedia,web_search,get_movie,   # Plugin
+search_stackoverflow,]
 )
