@@ -8,6 +8,7 @@ from app.tools.news import get_news
 from app.tools.wikipedia import search_wikipedia
 from app.tools.web_search import web_search
 from app.tools.movie import get_movie
+from app.tools.stackoverflow import (search_stackoverflow)
 
 from .state import ChatState
 
@@ -21,6 +22,8 @@ TOOLS = {
     "search_wikipedia": search_wikipedia,
     "web_search": web_search,
     "get_movie": get_movie,
+     # Stack Overflow Plugin
+    "search_stackoverflow": search_stackoverflow,
 }
 
 # TOOL NODE
