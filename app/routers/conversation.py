@@ -193,11 +193,6 @@ def get_conversation(
 
 # UPDATE CONVERSATION TITLE
 
-# ============================================================
-# UPDATE CONVERSATION TITLE
-# ============================================================
-
-
 class UpdateConversationTitle(BaseModel):
 
     title: str
@@ -368,4 +363,45 @@ def delete_conversation(
 
     finally:
 
+        db.close()
+
+# pin the conversation
+@router.patch("/{conversation_id}/pin")
+def toggle_pin_conversation(
+    conversation_id: int,
+):
+    db = SessionLocal()
+
+    try:
+        conversation = ChatDatabase.get_conversation_for_user(
+            db=db,
+            conversation_id=conversation_id,
+            user_id=DEFAULT_USER_ID,
+        )
+
+        if not conversation:
+            raise HTTPException(
+                status_code=404,
+                detail="Conversation not found",
+            )
+
+        conversation.is_pinned = not conversation.is_pinned
+
+        db.commit()
+        db.refresh(conversation)
+
+        return conversation
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e),
+        )
+
+    finally:
         db.close()
