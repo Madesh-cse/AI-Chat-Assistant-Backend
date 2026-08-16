@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import (String,DateTime,ForeignKey) # type: ignore
+from sqlalchemy import (String,DateTime,ForeignKey, Boolean) # type: ignore
 from sqlalchemy.orm import (Mapped,mapped_column,relationship ) # type: ignore
 
 from app.db.database import Base
@@ -24,6 +24,14 @@ class Conversation(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
+    )
+    
+    is_pinned : Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
         index=True,
     )
 
