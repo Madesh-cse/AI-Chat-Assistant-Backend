@@ -8,12 +8,18 @@ from app.tools.news import get_news
 from app.tools.wikipedia import search_wikipedia
 from app.tools.web_search import web_search
 from app.tools.movie import get_movie
-from app.tools.stackoverflow import (search_stackoverflow)
+from app.tools.stackoverflow import search_stackoverflow
+from app.tools.notion import (
+    search_notion,
+    read_notion_page,
+)
 
 from .state import ChatState
 
 
+# ==================================================
 # AVAILABLE TOOLS
+# ==================================================
 
 TOOLS = {
     "get_weather": get_weather,
@@ -22,11 +28,19 @@ TOOLS = {
     "search_wikipedia": search_wikipedia,
     "web_search": web_search,
     "get_movie": get_movie,
-     # Stack Overflow Plugin
+
+    # Plugins
     "search_stackoverflow": search_stackoverflow,
+
+    # Notion
+    "search_notion": search_notion,
+    "read_notion_page": read_notion_page,
 }
 
+
+# ==================================================
 # TOOL NODE
+# ==================================================
 
 def tool_node(state: ChatState) -> dict:
 
@@ -36,11 +50,17 @@ def tool_node(state: ChatState) -> dict:
 
     messages = state["messages"]
 
-    # GET LAST AI MESSAGE
+    # --------------------------------------------------
+    # LAST AI MESSAGE
+    # --------------------------------------------------
 
     last_message = messages[-1]
 
-    tool_calls = last_message.tool_calls
+    tool_calls = getattr(
+        last_message,
+        "tool_calls",
+        [],
+    )
 
     print(
         f"Number of tool calls: {len(tool_calls)}"
@@ -48,7 +68,10 @@ def tool_node(state: ChatState) -> dict:
 
     tool_messages = []
 
-    # EXECUTE EACH TOOL
+    # ==================================================
+    # EXECUTE TOOLS
+    # ==================================================
+
     for tool_call in tool_calls:
 
         tool_name = tool_call["name"]
@@ -64,11 +87,24 @@ def tool_node(state: ChatState) -> dict:
         print("TOOL EXECUTION")
         print("------------------------------")
 
-        print("Tool:", tool_name)
-        print("Arguments:", tool_args)
-        print("Tool Call ID:", tool_call_id)
+        print(
+            "Tool:",
+            tool_name,
+        )
 
+        print(
+            "Arguments:",
+            tool_args,
+        )
+
+        print(
+            "Tool Call ID:",
+            tool_call_id,
+        )
+
+        # --------------------------------------------------
         # FIND TOOL
+        # --------------------------------------------------
 
         tool = TOOLS.get(tool_name)
 
@@ -92,7 +128,10 @@ def tool_node(state: ChatState) -> dict:
 
             continue
 
+        # --------------------------------------------------
         # EXECUTE TOOL
+        # --------------------------------------------------
+
         start_time = time.perf_counter()
 
         try:
@@ -148,7 +187,9 @@ def tool_node(state: ChatState) -> dict:
                 )
             )
 
-    # RETURN TOOL MESSAGES
+    # ==================================================
+    # COMPLETE
+    # ==================================================
 
     print("\n==============================")
     print("TOOL NODE COMPLETE")
