@@ -8,6 +8,10 @@ from app.tools.movie import get_movie
 from app.tools.stackoverflow import (
     search_stackoverflow,
 )
+from app.tools.notion import (
+    search_notion,
+    read_notion_page,
+)
 
 llm = ChatOllama(
     model = "qwen2.5:3b",
@@ -16,5 +20,5 @@ llm = ChatOllama(
 )
 llm_with_tools = llm.bind_tools(
     [get_weather,get_city_image, get_news,search_wikipedia,web_search,get_movie,   # Plugin
-search_stackoverflow,]
+search_stackoverflow, search_notion,read_notion_page ]
 )

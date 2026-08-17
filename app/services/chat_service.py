@@ -20,10 +20,12 @@ from app.db.database import SessionLocal
 from app.services.chat_database import ChatDatabase
 from app.graph.graph import chat_graph
 
+from app.tools.stackoverflow import search_stackoverflow
+from app.tools.notion import (
+    search_notion,
+    read_notion_page,
+)
 
-# ==================================================
-# AVAILABLE TOOLS
-# ==================================================
 
 TOOLS = {
     "get_weather": get_weather,
@@ -32,6 +34,11 @@ TOOLS = {
     "search_wikipedia": search_wikipedia,
     "web_search": web_search,
     "get_movie": get_movie,
+    
+    # Plugins
+    "search_stackoverflow": search_stackoverflow,
+    "search_notion": search_notion,
+    "read_notion_page": read_notion_page,
 }
 
 
