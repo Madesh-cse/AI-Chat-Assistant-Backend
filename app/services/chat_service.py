@@ -1,13 +1,13 @@
 import time
 
-from app.services.llm import llm_with_tools
-
 from langchain_core.messages import (  # type: ignore
     ToolMessage,
     HumanMessage,
     AIMessage,
     SystemMessage,
 )
+
+from app.services.llm import llm_with_tools
 
 from app.tools.weather import get_weather
 from app.tools.city_image import get_city_image
@@ -16,16 +16,24 @@ from app.tools.wikipedia import search_wikipedia
 from app.tools.web_search import web_search
 from app.tools.movie import get_movie
 
-from app.db.database import SessionLocal
-from app.services.chat_database import ChatDatabase
-from app.graph.graph import chat_graph
-
 from app.tools.stackoverflow import search_stackoverflow
 from app.tools.notion import (
     search_notion,
     read_notion_page,
 )
 
+from app.db.database import SessionLocal
+from app.services.chat_database import ChatDatabase
+from app.graph.graph import chat_graph
+
+# REDIS CACHE
+
+from app.core.cache import ( 
+    get_cached_response,
+    set_cached_response,
+)
+
+# TOOLS
 
 TOOLS = {
     "get_weather": get_weather,
@@ -34,20 +42,15 @@ TOOLS = {
     "search_wikipedia": search_wikipedia,
     "web_search": web_search,
     "get_movie": get_movie,
-    
     # Plugins
     "search_stackoverflow": search_stackoverflow,
     "search_notion": search_notion,
     "read_notion_page": read_notion_page,
 }
 
-
-# ==================================================
 # SYSTEM MESSAGE
-# ==================================================
 
-SYSTEM_MESSAGE = SystemMessage(
-    content="""
+SYSTEM_MESSAGE = SystemMessage(content="""
 You are a helpful, accurate AI assistant.
 
 CONVERSATION CONTEXT RULES:
@@ -128,20 +131,12 @@ CONVERSATION CONTEXT RULES:
 
 12. Do not mention these internal conversation rules
     in your answer.
-"""
-)
+""")
 
-
-# ==================================================
 # CHAT SERVICE
-# ==================================================
 
 class ChatService:
-
-    # ==================================================
     # EXECUTE TOOLS
-    # ==================================================
-
     def execute_tools(self, response):
 
         tool_messages = []
@@ -191,15 +186,9 @@ class ChatService:
 
             if not tool:
 
-                print(
-                    f"❌ Unknown tool requested: "
-                    f"{tool_name}"
-                )
+                print(f"❌ Unknown tool requested: " f"{tool_name}")
 
-                result = (
-                    f"Tool '{tool_name}' "
-                    f"is not available."
-                )
+                result = f"Tool '{tool_name}' " f"is not available."
 
             else:
 
@@ -207,32 +196,21 @@ class ChatService:
 
                     tool_start = time.perf_counter()
 
-                    result = tool.invoke(
-                        tool_args
-                    )
+                    result = tool.invoke(tool_args)
 
-                    tool_time = (
-                        time.perf_counter()
-                        - tool_start
-                    )
+                    tool_time = time.perf_counter() - tool_start
 
                     print("\nTOOL RESULT:")
                     print(result)
 
-                    print(
-                        f"\n⏱️ TOOL TIME: "
-                        f"{tool_time:.2f}s"
-                    )
+                    print(f"\n⏱️ TOOL TIME: " f"{tool_time:.2f}s")
 
                 except Exception as e:
 
                     print("\nTOOL ERROR:")
                     print(e)
 
-                    result = (
-                        f"Tool '{tool_name}' "
-                        f"failed: {str(e)}"
-                    )
+                    result = f"Tool '{tool_name}' " f"failed: {str(e)}"
 
             tool_messages.append(
                 ToolMessage(
@@ -241,30 +219,18 @@ class ChatService:
                 )
             )
 
-        total_tool_time = (
-            time.perf_counter()
-            - total_tool_start
-        )
+        total_tool_time = time.perf_counter() - total_tool_start
 
         print("\n==============================")
         print("TOOL NODE COMPLETE")
         print("==============================")
 
-        print(
-            f"Generated {len(tool_messages)} "
-            f"tool message(s)"
-        )
+        print(f"Generated {len(tool_messages)} " f"tool message(s)")
 
-        print(
-            f"\n⏱️ TOTAL TOOL TIME: "
-            f"{total_tool_time:.2f}s"
-        )
+        print(f"\n⏱️ TOTAL TOOL TIME: " f"{total_tool_time:.2f}s")
 
         return tool_messages
-
-    # ==================================================
     # LOAD CONVERSATION HISTORY
-    # ==================================================
 
     def load_conversation_history(
         self,
@@ -294,19 +260,11 @@ class ChatService:
 
             if role == "user":
 
-                messages.append(
-                    HumanMessage(
-                        content=content
-                    )
-                )
+                messages.append(HumanMessage(content=content))
 
             elif role == "assistant":
 
-                messages.append(
-                    AIMessage(
-                        content=content
-                    )
-                )
+                messages.append(AIMessage(content=content))
 
             elif role == "tool":
 
@@ -327,14 +285,9 @@ class ChatService:
 
                 else:
 
-                    print(
-                        "⚠️ Skipping tool message "
-                        "without tool_call_id"
-                    )
+                    print("⚠️ Skipping tool message " "without tool_call_id")
 
-        print(
-            "\nConversation History"
-        )
+        print("\nConversation History")
 
         print(
             "Message count:",
@@ -346,17 +299,11 @@ class ChatService:
             start=1,
         ):
 
-            print(
-                f"{index}. "
-                f"{msg.__class__.__name__}: "
-                f"{msg.content}"
-            )
+            print(f"{index}. " f"{msg.__class__.__name__}: " f"{msg.content}")
 
         return messages
 
-    # ==================================================
     # NORMAL CHAT
-    # ==================================================
 
     def chat(
         self,
@@ -377,30 +324,51 @@ class ChatService:
             print(message)
 
             # ==================================================
-            # 1. LOAD PREVIOUS CONVERSATION
+            # 1. REDIS CACHE CHECK
             # ==================================================
 
-            history_messages = (
-                self.load_conversation_history(
-                    db=db,
-                    conversation_id=conversation_id,
-                )
+            print("\n==============================")
+            print("REDIS CACHE CHECK")
+            print("==============================")
+
+            cached = get_cached_response(
+                user_id=1,
+                message=message,
+            )
+
+            if cached:
+
+                print("🟢 REDIS CACHE HIT")
+
+                cached_response = cached["response"]
+
+                print("Returning cached response.")
+
+                return cached_response
+
+            print("🔴 REDIS CACHE MISS")
+
+            # ==================================================
+            # 2. LOAD PREVIOUS CONVERSATION
+            # ==================================================
+
+            history_messages = self.load_conversation_history(
+                db=db,
+                conversation_id=conversation_id,
             )
 
             # ==================================================
-            # 2. ADD SYSTEM MESSAGE
+            # 3. ADD SYSTEM MESSAGE
             # ==================================================
 
             messages = [
                 SYSTEM_MESSAGE,
                 *history_messages,
-                HumanMessage(
-                    content=message
-                ),
+                HumanMessage(content=message),
             ]
 
             # ==================================================
-            # 3. PRINT LANGGRAPH INPUT
+            # 4. PRINT LANGGRAPH INPUT
             # ==================================================
 
             print("\n==============================")
@@ -417,14 +385,10 @@ class ChatService:
                 start=1,
             ):
 
-                print(
-                    f"{index}. "
-                    f"{msg.__class__.__name__}: "
-                    f"{msg.content}"
-                )
+                print(f"{index}. " f"{msg.__class__.__name__}: " f"{msg.content}")
 
             # ==================================================
-            # 4. SAVE CURRENT USER MESSAGE
+            # 5. SAVE CURRENT USER MESSAGE
             # ==================================================
 
             ChatDatabase.create_message(
@@ -434,12 +398,10 @@ class ChatService:
                 content=message,
             )
 
-            print(
-                "\nUSER MESSAGE SAVED ✅"
-            )
+            print("\nUSER MESSAGE SAVED ✅")
 
             # ==================================================
-            # 5. RUN LANGGRAPH
+            # 6. RUN LANGGRAPH
             # ==================================================
 
             graph_start = time.perf_counter()
@@ -452,18 +414,12 @@ class ChatService:
                 }
             )
 
-            graph_time = (
-                time.perf_counter()
-                - graph_start
-            )
+            graph_time = time.perf_counter() - graph_start
 
-            print(
-                f"\n⏱️ LANGGRAPH TIME: "
-                f"{graph_time:.2f}s"
-            )
+            print(f"\n⏱️ LANGGRAPH TIME: " f"{graph_time:.2f}s")
 
             # ==================================================
-            # 6. GET FINAL RESPONSE
+            # 7. GET FINAL RESPONSE
             # ==================================================
 
             response = result.get(
@@ -478,7 +434,7 @@ class ChatService:
             print(response)
 
             # ==================================================
-            # 7. SAVE ASSISTANT RESPONSE
+            # 8. SAVE ASSISTANT RESPONSE
             # ==================================================
 
             if response:
@@ -490,23 +446,27 @@ class ChatService:
                     content=response,
                 )
 
-                print(
-                    "\nAI MESSAGE SAVED ✅"
+                print("\nAI MESSAGE SAVED ✅")
+
+                # ==================================================
+                # 9. SAVE RESPONSE TO REDIS
+                # ==================================================
+
+                set_cached_response(
+                    user_id=1,
+                    message=message,
+                    response=response,
                 )
 
+                print("🟢 RESPONSE CACHED IN REDIS")
+
             # ==================================================
-            # 8. TOTAL TIME
+            # 10. TOTAL TIME
             # ==================================================
 
-            total_time = (
-                time.perf_counter()
-                - total_start
-            )
+            total_time = time.perf_counter() - total_start
 
-            print(
-                f"\n⏱️ TOTAL REQUEST TIME: "
-                f"{total_time:.2f}s"
-            )
+            print(f"\n⏱️ TOTAL REQUEST TIME: " f"{total_time:.2f}s")
 
             return response
 
@@ -516,9 +476,7 @@ class ChatService:
             print("LANGGRAPH ERROR")
             print("==============================")
 
-            print(
-                f"{type(e).__name__}: {e}"
-            )
+            print(f"{type(e).__name__}: {e}")
 
             db.rollback()
 
@@ -559,38 +517,25 @@ class ChatService:
                 "Conversation ID:",
                 conversation_id,
             )
-
-            # ==================================================
             # 1. CREATE / VALIDATE CONVERSATION
-            # ==================================================
 
             if conversation_id is None:
 
-                print(
-                    "\nCREATING NEW CONVERSATION"
-                )
+                print("\nCREATING NEW CONVERSATION")
 
-                title = (
-                    message.strip()[:50]
-                )
+                title = message.strip()[:50]
 
                 if not title:
 
-                    title = (
-                        "New Conversation"
-                    )
+                    title = "New Conversation"
 
-                conversation = (
-                    ChatDatabase.create_conversation(
-                        db=db,
-                        title=title,
-                        user_id=DEFAULT_USER_ID,
-                    )
+                conversation = ChatDatabase.create_conversation(
+                    db=db,
+                    title=title,
+                    user_id=DEFAULT_USER_ID,
                 )
 
-                conversation_id = (
-                    conversation.id
-                )
+                conversation_id = conversation.id
 
                 print(
                     "New Conversation ID:",
@@ -600,54 +545,88 @@ class ChatService:
             else:
 
                 print(
-                    "\nUsing existing "
-                    "Conversation ID:",
+                    "\nUsing existing " "Conversation ID:",
                     conversation_id,
                 )
 
-                conversation = (
-                    ChatDatabase
-                    .get_conversation_for_user(
-                        db=db,
-                        conversation_id=conversation_id,
-                        user_id=DEFAULT_USER_ID,
-                    )
+                conversation = ChatDatabase.get_conversation_for_user(
+                    db=db,
+                    conversation_id=conversation_id,
+                    user_id=DEFAULT_USER_ID,
                 )
 
                 if not conversation:
 
                     raise ValueError(
-                        f"Conversation "
-                        f"{conversation_id} "
-                        f"does not exist."
+                        f"Conversation " f"{conversation_id} " f"does not exist."
                     )
 
-            # ==================================================
-            # 2. LOAD CONVERSATION HISTORY
-            # ==================================================
+            # 2. REDIS CACHE CHECK
 
-            history_messages = (
-                self.load_conversation_history(
-                    db=db,
-                    conversation_id=conversation_id,
-                )
+            print("\n==============================")
+            print("REDIS CACHE CHECK")
+            print("==============================")
+
+            cached = get_cached_response(
+                user_id=DEFAULT_USER_ID,
+                conversation_id=conversation_id,
+                message=message,
             )
 
-            # ==================================================
-            # 3. BUILD STREAM MESSAGES
-            # ==================================================
+            if cached:
+
+                cached_response = cached.get(
+                    "response",
+                    "",
+                )
+
+                if cached_response:
+
+                    print(
+                        "\n🟢 REDIS CACHE HIT"
+                    )
+
+                    print(
+                        "Returning cached response..."
+                    )
+
+                    # Save cached response to PostgreSQL
+                    # so conversation history remains complete.
+                    ChatDatabase.create_message(
+                        db=db,
+                        conversation_id=conversation_id,
+                        role="user",
+                        content=message,
+                    )
+
+                    ChatDatabase.create_message(
+                        db=db,
+                        conversation_id=conversation_id,
+                        role="assistant",
+                        content=cached_response,
+                    )
+
+                    # Stream cached response to frontend
+                    yield cached_response
+
+                    return
+
+            print("🔴 REDIS CACHE MISS")
+
+            # 3. LOAD CONVERSATION HISTORY
+
+            history_messages = self.load_conversation_history(
+                db=db,
+                conversation_id=conversation_id,
+            )
+            # 4. BUILD STREAM MESSAGES
 
             messages = [
                 SYSTEM_MESSAGE,
                 *history_messages,
-                HumanMessage(
-                    content=message
-                ),
+                HumanMessage(content=message),
             ]
-
-            # ==================================================
-            # 4. SAVE USER MESSAGE
-            # ==================================================
+            # 5. SAVE USER MESSAGE
 
             database_start = time.perf_counter()
 
@@ -658,48 +637,28 @@ class ChatService:
                 content=message,
             )
 
-            database_time = (
-                time.perf_counter()
-                - database_start
-            )
+            database_time = time.perf_counter() - database_start
 
-            print(
-                f"\n⏱️ USER MESSAGE DB TIME: "
-                f"{database_time:.4f}s"
-            )
-
-            # ==================================================
-            # 5. FIRST LLM STREAM
-            # ==================================================
+            print(f"\n⏱️ USER MESSAGE DB TIME: " f"{database_time:.4f}s")
+            # 6. FIRST LLM STREAM
 
             print("\n==============================")
             print("STARTING QWEN STREAM")
             print("==============================")
 
-            first_llm_start = (
-                time.perf_counter()
-            )
+            first_llm_start = time.perf_counter()
 
             first_token_time = None
 
             chunks = []
 
-            for chunk in llm_with_tools.stream(
-                messages
-            ):
+            for chunk in llm_with_tools.stream(messages):
 
                 if first_token_time is None:
 
-                    first_token_time = (
-                        time.perf_counter()
-                        - first_llm_start
-                    )
+                    first_token_time = time.perf_counter() - first_llm_start
 
-                    print(
-                        f"\n⚡ TIME TO "
-                        f"FIRST TOKEN: "
-                        f"{first_token_time:.2f}s"
-                    )
+                    print(f"\n⚡ TIME TO " f"FIRST TOKEN: " f"{first_token_time:.2f}s")
 
                 chunks.append(chunk)
 
@@ -707,19 +666,11 @@ class ChatService:
 
                     yield chunk.content
 
-            first_llm_time = (
-                time.perf_counter()
-                - first_llm_start
-            )
+            first_llm_time = time.perf_counter() - first_llm_start
 
-            print(
-                f"\n⏱️ FIRST LLM STREAM TIME: "
-                f"{first_llm_time:.2f}s"
-            )
+            print(f"\n⏱️ FIRST LLM STREAM TIME: " f"{first_llm_time:.2f}s")
 
-            # ==================================================
-            # 6. BUILD COMPLETE RESPONSE
-            # ==================================================
+            # 7. BUILD COMPLETE RESPONSE
 
             content = ""
 
@@ -729,9 +680,7 @@ class ChatService:
 
                     content += chunk.content
 
-            # ==================================================
-            # 7. COLLECT TOOL CALLS
-            # ==================================================
+            # 8. COLLECT TOOL CALLS
 
             tool_calls = []
 
@@ -739,21 +688,13 @@ class ChatService:
 
                 if chunk.tool_calls:
 
-                    tool_calls.extend(
-                        chunk.tool_calls
-                    )
+                    tool_calls.extend(chunk.tool_calls)
 
-            print(
-                "\n=============================="
-            )
+            print("\n==============================")
 
-            print(
-                "FIRST RESPONSE COMPLETE"
-            )
+            print("FIRST RESPONSE COMPLETE")
 
-            print(
-                "=============================="
-            )
+            print("==============================")
 
             print(
                 "Content:",
@@ -766,7 +707,7 @@ class ChatService:
             )
 
             # ==================================================
-            # 8. NO TOOL
+            # 9. NO TOOL
             # ==================================================
 
             if not tool_calls:
@@ -780,44 +721,37 @@ class ChatService:
                         content=content,
                     )
 
-                    print(
-                        "AI MESSAGE SAVED ✅"
+                    print("AI MESSAGE SAVED ✅")
+
+                    # SAVE TO REDIS
+
+                    set_cached_response(
+                        user_id=DEFAULT_USER_ID,
+                        conversation_id=conversation_id,
+                        message=message,
+                        response=content,
                     )
 
-                total_time = (
-                    time.perf_counter()
-                    - total_start
-                )
+                    print("🟢 RESPONSE CACHED IN REDIS")
 
-                print(
-                    f"\n⏱️ TOTAL REQUEST TIME: "
-                    f"{total_time:.2f}s"
-                )
+                total_time = time.perf_counter() - total_start
+
+                print(f"\n⏱️ TOTAL REQUEST TIME: " f"{total_time:.2f}s")
 
                 return
 
-            # ==================================================
-            # 9. CREATE AI TOOL-CALL MESSAGE
-            # ==================================================
+            # 10. CREATE AI TOOL-CALL MESSAGE
 
             response = AIMessage(
                 content=content,
                 tool_calls=tool_calls,
             )
 
-            # ==================================================
-            # 10. EXECUTE TOOLS
-            # ==================================================
+            # 11. EXECUTE TOOLS
 
-            tool_messages = (
-                self.execute_tools(
-                    response
-                )
-            )
+            tool_messages = self.execute_tools(response)
 
-            # ==================================================
-            # 11. BUILD FINAL MESSAGES
-            # ==================================================
+            # 12. BUILD FINAL MESSAGES
 
             final_messages = [
                 *messages,
@@ -825,21 +759,13 @@ class ChatService:
                 *tool_messages,
             ]
 
-            # ==================================================
-            # 12. FINAL LLM STREAM
-            # ==================================================
+            # 13. FINAL LLM STREAM
 
-            print(
-                "\n=============================="
-            )
+            print("\n==============================")
 
-            print(
-                "STREAMING FINAL RESPONSE"
-            )
+            print("STREAMING FINAL RESPONSE")
 
-            print(
-                "=============================="
-            )
+            print("==============================")
 
             final_start = time.perf_counter()
 
@@ -847,16 +773,11 @@ class ChatService:
 
             ai_content = ""
 
-            for chunk in llm_with_tools.stream(
-                final_messages
-            ):
+            for chunk in llm_with_tools.stream(final_messages):
 
                 if final_first_token is None:
 
-                    final_first_token = (
-                        time.perf_counter()
-                        - final_start
-                    )
+                    final_first_token = time.perf_counter() - final_start
 
                     print(
                         f"\n⚡ FINAL TIME "
@@ -866,31 +787,19 @@ class ChatService:
 
                 if chunk.content:
 
-                    ai_content += (
-                        chunk.content
-                    )
+                    ai_content += chunk.content
 
                     yield chunk.content
 
-            final_time = (
-                time.perf_counter()
-                - final_start
-            )
+            final_time = time.perf_counter() - final_start
 
-            print(
-                f"\n⏱️ FINAL LLM STREAM TIME: "
-                f"{final_time:.2f}s"
-            )
+            print(f"\n⏱️ FINAL LLM STREAM TIME: " f"{final_time:.2f}s")
 
-            # ==================================================
-            # 13. SAVE FINAL AI RESPONSE
-            # ==================================================
+            # 14. SAVE FINAL AI RESPONSE
 
             if ai_content:
 
-                database_start = (
-                    time.perf_counter()
-                )
+                database_start = time.perf_counter()
 
                 ChatDatabase.create_message(
                     db=db,
@@ -899,68 +808,44 @@ class ChatService:
                     content=ai_content,
                 )
 
-                database_time = (
-                    time.perf_counter()
-                    - database_start
+                database_time = time.perf_counter() - database_start
+
+                print(f"\n⏱️ AI MESSAGE DB TIME: " f"{database_time:.4f}s")
+                print("AI MESSAGE SAVED ✅")
+
+                # SAVE FINAL RESPONSE TO REDIS
+
+                set_cached_response(
+                    user_id=DEFAULT_USER_ID,
+                    conversation_id=conversation_id,
+                    message=message,
+                    response=ai_content,
                 )
 
-                print(
-                    f"\n⏱️ AI MESSAGE DB TIME: "
-                    f"{database_time:.4f}s"
-                )
+                print("🟢 RESPONSE CACHED IN REDIS")
 
-                print(
-                    "AI MESSAGE SAVED ✅"
-                )
+            # 15. TOTAL TIME
 
-            # ==================================================
-            # 14. TOTAL TIME
-            # ==================================================
-
-            total_time = (
-                time.perf_counter()
-                - total_start
-            )
-
-            print(
-                "\n=============================="
-            )
-
-            print(
-                "STREAM COMPLETE"
-            )
-
-            print(
-                "=============================="
-            )
-
+            total_time = time.perf_counter() - total_start
+            print("\n==============================")
+            print("STREAM COMPLETE")
+            print("==============================")
             print(
                 "Conversation ID:",
                 conversation_id,
             )
 
-            print(
-                f"\n⏱️ TOTAL REQUEST TIME: "
-                f"{total_time:.2f}s"
-            )
+            print(f"\n⏱️ TOTAL REQUEST TIME: " f"{total_time:.2f}s")
 
         except Exception as e:
 
-            print(
-                "\n=============================="
-            )
+            print("\n==============================")
 
-            print(
-                "STREAM ERROR"
-            )
+            print("STREAM ERROR")
 
-            print(
-                "=============================="
-            )
+            print("==============================")
 
-            print(
-                f"{type(e).__name__}: {e}"
-            )
+            print(f"{type(e).__name__}: {e}")
 
             db.rollback()
 
@@ -970,10 +855,7 @@ class ChatService:
 
             db.close()
 
-            print(
-                "\nDATABASE CONNECTION "
-                "CLOSED ✅"
-            )
+            print("\nDATABASE CONNECTION " "CLOSED ✅")
 
     # ==================================================
     # RUN GRAPH
@@ -985,35 +867,25 @@ class ChatService:
         conversation_id: int,
     ) -> str:
 
-        print(
-            "\n=============================="
-        )
+        print("\n==============================")
 
-        print(
-            "LANGGRAPH"
-        )
+        print("LANGGRAPH")
 
-        print(
-            "=============================="
-        )
+        print("==============================")
 
         db = SessionLocal()
 
         try:
 
-            history_messages = (
-                self.load_conversation_history(
-                    db=db,
-                    conversation_id=conversation_id,
-                )
+            history_messages = self.load_conversation_history(
+                db=db,
+                conversation_id=conversation_id,
             )
 
             messages = [
                 SYSTEM_MESSAGE,
                 *history_messages,
-                HumanMessage(
-                    content=message
-                ),
+                HumanMessage(content=message),
             ]
 
             result = chat_graph.invoke(
@@ -1029,17 +901,11 @@ class ChatService:
                 "",
             )
 
-            print(
-                "\n=============================="
-            )
+            print("\n==============================")
 
-            print(
-                "LANGGRAPH RESPONSE"
-            )
+            print("LANGGRAPH RESPONSE")
 
-            print(
-                "=============================="
-            )
+            print("==============================")
 
             print(response)
 
