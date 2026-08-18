@@ -2,9 +2,11 @@ import os
 
 from dotenv import load_dotenv  # type: ignore
 from sqlalchemy import create_engine  # type: ignore
-from sqlalchemy.orm import (DeclarativeBase, sessionmaker,)  # type: ignore
+from sqlalchemy.orm import (  # type: ignore
+    DeclarativeBase,
+    sessionmaker,
+) 
 
-# ENVIRONMENT
 
 load_dotenv()
 
@@ -15,14 +17,12 @@ if not DATABASE_URL:
         "DATABASE_URL is not configured"
     )
 
-# DATABASE ENGINE
 
 engine = create_engine(
     DATABASE_URL,
     echo=True,
 )
 
-# SESSION
 
 SessionLocal = sessionmaker(
     bind=engine,
@@ -30,21 +30,29 @@ SessionLocal = sessionmaker(
     autoflush=False,
 )
 
-# BASE
 
 class Base(DeclarativeBase):
     pass
 
 
+
+def get_db():
+    db = SessionLocal()
+
+    try:
+        yield db
+    finally:
+        db.close()
+
 # CREATE TABLES
 
 def create_tables():
 
-    # Import models here so SQLAlchemy knows about them
     from app.models.user import User
     from app.models.conversation import Conversation
     from app.models.message import Message
     from app.models.pdf_document import PDFDocument
+    from app.models.app_connection import AppConnection
 
     print("\n==============================")
     print("CREATING DATABASE TABLES")

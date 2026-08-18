@@ -38,3 +38,9 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    
+    app_connections = relationship(
+        "AppConnection",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
