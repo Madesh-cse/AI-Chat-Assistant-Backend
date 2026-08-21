@@ -1,7 +1,18 @@
 from datetime import datetime
 
-from sqlalchemy import (Text,String,DateTime,ForeignKey) # type: ignore
-from sqlalchemy.orm import (Mapped,mapped_column,relationship) # type: ignore
+from sqlalchemy import ( # type: ignore
+    Text,
+    String,
+    DateTime,
+    ForeignKey,
+    JSON,
+)
+
+from sqlalchemy.orm import ( # type: ignore
+    Mapped,
+    mapped_column,
+    relationship,
+)
 
 from app.db.database import Base
 
@@ -32,6 +43,17 @@ class Message(Base):
     content: Mapped[str] = mapped_column(
         Text,
         nullable=False,
+    )
+
+    tool_call_id: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        index=True,
+    )
+
+    tool_calls: Mapped[list | None] = mapped_column(
+        JSON,
+        nullable=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(

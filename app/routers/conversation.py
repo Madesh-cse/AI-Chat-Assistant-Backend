@@ -1,144 +1,106 @@
-from fastapi import APIRouter, HTTPException  # type: ignore
-from pydantic import BaseModel  # type: ignore
-from sqlalchemy.orm import Session  # type: ignore
+from fastapi import APIRouter, Depends, HTTPException, status # type: ignore
+from pydantic import BaseModel # type: ignore
+from sqlalchemy.orm import Session # type: ignore
 
-from app.db.database import SessionLocal
-
+from app.db.database import get_db
 from app.services.chat_database import ChatDatabase
-
 from app.Schemas.conversation import (
     ConversationCreate,
     ConversationResponse,
 )
+from app.core.dependencies import get_current_user
+from app.models.user import User
 
-# ROUTER
 
 router = APIRouter(
     prefix="/conversations",
     tags=["Conversations"],
 )
 
-# TEMPORARY USER
 
-DEFAULT_USER_ID = 1
-
-
+# =========================================================
 # CREATE CONVERSATION
+# =========================================================
+
 @router.post(
     "/",
     response_model=ConversationResponse,
+    status_code=status.HTTP_201_CREATED,
 )
 def create_conversation(
     request: ConversationCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-
-    db = SessionLocal()
-
     try:
-
-        # ----------------------------------------------------
-        # Check user
-        # ----------------------------------------------------
-
-        user = ChatDatabase.get_user(
-            db=db,
-            user_id=DEFAULT_USER_ID,
-        )
-
-        if not user:
-
-            raise HTTPException(
-                status_code=404,
-                detail="User not found",
-            )
-
-        # ----------------------------------------------------
-        # Create conversation
-        # ----------------------------------------------------
-
         conversation = ChatDatabase.create_conversation(
             db=db,
             title=request.title,
-            user_id=DEFAULT_USER_ID,
+            user_id=current_user.id,
         )
 
         if not conversation:
-
             raise HTTPException(
-                status_code=500,
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to create conversation",
             )
 
         return conversation
 
     except HTTPException:
-
         raise
 
     except Exception as e:
-
         db.rollback()
 
         print("\n========================================")
-
         print("CREATE CONVERSATION ERROR")
-
         print("========================================")
-
         print(e)
+        print("========================================\n")
 
         raise HTTPException(
-            status_code=500,
-            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create conversation",
         )
 
-    finally:
 
-        db.close()
-
-
+# =========================================================
 # GET ALL CONVERSATIONS
-
+# =========================================================
 
 @router.get(
     "/",
     response_model=list[ConversationResponse],
 )
-def get_conversations():
-
-    db = SessionLocal()
-
+def get_conversations(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     try:
-
         conversations = ChatDatabase.get_conversations(
             db=db,
-            user_id=DEFAULT_USER_ID,
+            user_id=current_user.id,
         )
 
         return conversations
 
     except Exception as e:
-
         print("\n========================================")
-
         print("GET CONVERSATIONS ERROR")
-
         print("========================================")
-
         print(e)
+        print("========================================\n")
 
         raise HTTPException(
-            status_code=500,
-            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get conversations",
         )
 
-    finally:
 
-        db.close()
-
-
+# =========================================================
 # GET SINGLE CONVERSATION
-
+# =========================================================
 
 @router.get(
     "/{conversation_id}",
@@ -146,191 +108,145 @@ def get_conversations():
 )
 def get_conversation(
     conversation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-
-    db = SessionLocal()
-
     try:
-
         conversation = ChatDatabase.get_conversation_for_user(
             db=db,
             conversation_id=conversation_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=current_user.id,
         )
 
         if not conversation:
-
             raise HTTPException(
-                status_code=404,
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail="Conversation not found",
             )
 
         return conversation
 
     except HTTPException:
-
         raise
 
     except Exception as e:
-
         print("\n========================================")
-
         print("GET CONVERSATION ERROR")
-
         print("========================================")
-
         print(e)
+        print("========================================\n")
 
         raise HTTPException(
-            status_code=500,
-            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get conversation",
         )
 
-    finally:
 
-        db.close()
-
-
+# =========================================================
 # UPDATE CONVERSATION TITLE
+# =========================================================
 
 class UpdateConversationTitle(BaseModel):
-
     title: str
 
 
 @router.patch(
     "/{conversation_id}/title",
+    response_model=ConversationResponse,
 )
 def update_conversation_title(
     conversation_id: int,
     request: UpdateConversationTitle,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-
-    db = SessionLocal()
-
     try:
-
-        # VERIFY CONVERSATION
-
+        # Verify ownership
         conversation = ChatDatabase.get_conversation_for_user(
             db=db,
             conversation_id=conversation_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=current_user.id,
         )
 
         if not conversation:
-
             raise HTTPException(
-                status_code=404,
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail="Conversation not found",
             )
 
-        # VALIDATE TITLE
+        # Validate title
         title = request.title.strip()
 
         if not title:
-
             raise HTTPException(
-                status_code=400,
+                status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Conversation title cannot be empty",
             )
 
-        # Optional: limit title length
+        # Limit title length
         title = title[:100]
 
-        # UPDATE TITLE
-
+        # Update title
         conversation.title = title
 
         db.commit()
-
         db.refresh(conversation)
 
-        print("\n========================================")
-        print("CONVERSATION TITLE UPDATED")
-        print("========================================")
-
-        print(
-            "Conversation ID:",
-            conversation_id,
-        )
-
-        print(
-            "New Title:",
-            conversation.title,
-        )
-
-        # RESPONSE
         return conversation
 
     except HTTPException:
-
         raise
 
     except Exception as e:
-
         db.rollback()
 
         print("\n========================================")
         print("UPDATE CONVERSATION TITLE ERROR")
         print("========================================")
-
         print(e)
+        print("========================================\n")
 
         raise HTTPException(
-            status_code=500,
-            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update conversation title",
         )
 
-    finally:
 
-        db.close()
-
-
+# =========================================================
 # DELETE CONVERSATION
-
+# =========================================================
 
 @router.delete(
     "/{conversation_id}",
 )
 def delete_conversation(
     conversation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-
-    db = SessionLocal()
-
     try:
-
-        # ----------------------------------------------------
-        # Verify conversation belongs to user
-        # ----------------------------------------------------
-
+        # Verify ownership first
         conversation = ChatDatabase.get_conversation_for_user(
             db=db,
             conversation_id=conversation_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=current_user.id,
         )
 
         if not conversation:
-
             raise HTTPException(
-                status_code=404,
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail="Conversation not found",
             )
 
-        # ----------------------------------------------------
-        # Delete
-        # ----------------------------------------------------
-
+        # Delete conversation
         deleted = ChatDatabase.delete_conversation(
             db=db,
             conversation_id=conversation_id,
         )
 
         if not deleted:
-
             raise HTTPException(
-                status_code=404,
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail="Conversation not found",
             )
 
@@ -341,50 +257,51 @@ def delete_conversation(
         }
 
     except HTTPException:
-
         raise
 
     except Exception as e:
-
         db.rollback()
 
         print("\n========================================")
-
         print("DELETE CONVERSATION ERROR")
-
         print("========================================")
-
         print(e)
+        print("========================================\n")
 
         raise HTTPException(
-            status_code=500,
-            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete conversation",
         )
 
-    finally:
 
-        db.close()
+# =========================================================
+# PIN / UNPIN CONVERSATION
+# =========================================================
 
-# pin the conversation
-@router.patch("/{conversation_id}/pin")
+@router.patch(
+    "/{conversation_id}/pin",
+    response_model=ConversationResponse,
+)
 def toggle_pin_conversation(
     conversation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    db = SessionLocal()
-
     try:
+        # Verify ownership
         conversation = ChatDatabase.get_conversation_for_user(
             db=db,
             conversation_id=conversation_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=current_user.id,
         )
 
         if not conversation:
             raise HTTPException(
-                status_code=404,
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail="Conversation not found",
             )
 
+        # Toggle pin
         conversation.is_pinned = not conversation.is_pinned
 
         db.commit()
@@ -398,10 +315,13 @@ def toggle_pin_conversation(
     except Exception as e:
         db.rollback()
 
-        raise HTTPException(
-            status_code=500,
-            detail=str(e),
-        )
+        print("\n========================================")
+        print("PIN CONVERSATION ERROR")
+        print("========================================")
+        print(e)
+        print("========================================\n")
 
-    finally:
-        db.close()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update conversation",
+        )
