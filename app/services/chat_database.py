@@ -8,10 +8,6 @@ from app.models.pdf_document import PDFDocument
 
 class ChatDatabase:
 
-    # ============================================================
-    # USER
-    # ============================================================
-
     @staticmethod
     def create_user(
         db: Session,
@@ -34,17 +30,7 @@ class ChatDatabase:
         db: Session,
         user_id: int,
     ):
-        return (
-            db.query(User)
-            .filter(
-                User.id == user_id
-            )
-            .first()
-        )
-
-    # ============================================================
-    # CREATE CONVERSATION
-    # ============================================================
+        return db.query(User).filter(User.id == user_id).first()
 
     @staticmethod
     def create_conversation(
@@ -58,38 +44,17 @@ class ChatDatabase:
         )
 
         db.add(conversation)
-
         db.commit()
-
         db.refresh(conversation)
-
-        # --------------------------------------------------------
-        # IMPORTANT
-        #
-        # Reload the conversation with messages eagerly loaded.
-        #
-        # This prevents DetachedInstanceError when FastAPI
-        # serializes ConversationResponse.
-        # --------------------------------------------------------
 
         conversation = (
             db.query(Conversation)
-            .options(
-                selectinload(
-                    Conversation.messages
-                )
-            )
-            .filter(
-                Conversation.id == conversation.id
-            )
+            .options(selectinload(Conversation.messages))
+            .filter(Conversation.id == conversation.id)
             .first()
         )
 
         return conversation
-
-    # ============================================================
-    # GET CONVERSATION
-    # ============================================================
 
     @staticmethod
     def get_conversation(
@@ -98,20 +63,10 @@ class ChatDatabase:
     ):
         return (
             db.query(Conversation)
-            .options(
-                selectinload(
-                    Conversation.messages
-                )
-            )
-            .filter(
-                Conversation.id == conversation_id
-            )
+            .options(selectinload(Conversation.messages))
+            .filter(Conversation.id == conversation_id)
             .first()
         )
-
-    # ============================================================
-    # GET ALL CONVERSATIONS FOR USER
-    # ============================================================
 
     @staticmethod
     def get_conversations(
@@ -120,23 +75,11 @@ class ChatDatabase:
     ):
         return (
             db.query(Conversation)
-            .options(
-                selectinload(
-                    Conversation.messages
-                )
-            )
-            .filter(
-                Conversation.user_id == user_id
-            )
-            .order_by(
-                Conversation.updated_at.desc()
-            )
+            .options(selectinload(Conversation.messages))
+            .filter(Conversation.user_id == user_id)
+            .order_by(Conversation.updated_at.desc())
             .all()
         )
-
-    # ============================================================
-    # GET SINGLE CONVERSATION FOR USER
-    # ============================================================
 
     @staticmethod
     def get_conversation_for_user(
@@ -146,11 +89,7 @@ class ChatDatabase:
     ):
         return (
             db.query(Conversation)
-            .options(
-                selectinload(
-                    Conversation.messages
-                )
-            )
+            .options(selectinload(Conversation.messages))
             .filter(
                 Conversation.id == conversation_id,
                 Conversation.user_id == user_id,
@@ -158,35 +97,22 @@ class ChatDatabase:
             .first()
         )
 
-    # ============================================================
-    # DELETE CONVERSATION
-    # ============================================================
-
     @staticmethod
     def delete_conversation(
         db: Session,
         conversation_id: int,
     ):
         conversation = (
-            db.query(Conversation)
-            .filter(
-                Conversation.id == conversation_id
-            )
-            .first()
+            db.query(Conversation).filter(Conversation.id == conversation_id).first()
         )
 
         if not conversation:
             return False
 
         db.delete(conversation)
-
         db.commit()
 
         return True
-
-    # ============================================================
-    # CREATE MESSAGE
-    # ============================================================
 
     @staticmethod
     def create_message(
@@ -194,22 +120,35 @@ class ChatDatabase:
         conversation_id: int,
         role: str,
         content: str,
+        tool_call_id: str | None = None,
+        tool_calls: list | None = None,
     ):
+        """
+        Create a conversation message.
+
+        Supports:
+            user
+            assistant
+            tool
+
+        For tool messages, tool_call_id is preserved so that
+        LangChain can correctly associate the ToolMessage with
+        the corresponding AIMessage tool call.
+        """
+
         message = Message(
             conversation_id=conversation_id,
             role=role,
             content=content,
+            tool_call_id=tool_call_id,
+            tool_calls=tool_calls,
         )
 
         db.add(message)
-
         db.commit()
-
         db.refresh(message)
 
         return message
-
-    # GET MESSAGES
 
     @staticmethod
     def get_messages(
@@ -218,16 +157,32 @@ class ChatDatabase:
     ):
         return (
             db.query(Message)
-            .filter(
-                Message.conversation_id == conversation_id
-            )
-            .order_by(
-                Message.created_at.asc()
-            )
+            .filter(Message.conversation_id == conversation_id)
+            .order_by(Message.created_at.asc())
             .all()
         )
 
-    # PDF
+    @staticmethod
+    def get_message(
+        db: Session,
+        message_id: int,
+    ):
+        return db.query(Message).filter(Message.id == message_id).first()
+
+    @staticmethod
+    def delete_message(
+        db: Session,
+        message_id: int,
+    ):
+        message = db.query(Message).filter(Message.id == message_id).first()
+
+        if not message:
+            return False
+
+        db.delete(message)
+        db.commit()
+
+        return True
 
     @staticmethod
     def create_pdf_document(
@@ -243,33 +198,17 @@ class ChatDatabase:
         )
 
         db.add(pdf)
-
         db.commit()
-
         db.refresh(pdf)
 
         return pdf
-
-    # ============================================================
-    # GET PDF
-    # ============================================================
 
     @staticmethod
     def get_pdf_document(
         db: Session,
         pdf_id: int,
     ):
-        return (
-            db.query(PDFDocument)
-            .filter(
-                PDFDocument.id == pdf_id
-            )
-            .first()
-        )
-
-    # ============================================================
-    # GET CONVERSATION PDFS
-    # ============================================================
+        return db.query(PDFDocument).filter(PDFDocument.id == pdf_id).first()
 
     @staticmethod
     def get_conversation_pdfs(
@@ -278,11 +217,22 @@ class ChatDatabase:
     ):
         return (
             db.query(PDFDocument)
-            .filter(
-                PDFDocument.conversation_id == conversation_id
-            )
-            .order_by(
-                PDFDocument.created_at.asc()
-            )
+            .filter(PDFDocument.conversation_id == conversation_id)
+            .order_by(PDFDocument.created_at.asc())
             .all()
         )
+
+    @staticmethod
+    def delete_pdf_document(
+        db: Session,
+        pdf_id: int,
+    ):
+        pdf = db.query(PDFDocument).filter(PDFDocument.id == pdf_id).first()
+
+        if not pdf:
+            return False
+
+        db.delete(pdf)
+        db.commit()
+
+        return True
