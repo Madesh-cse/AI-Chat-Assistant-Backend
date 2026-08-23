@@ -1,3 +1,5 @@
+import os
+
 from langchain_ollama import ChatOllama # type: ignore
 from app.tools.weather import get_weather
 from app.tools.city_image import get_city_image
@@ -16,6 +18,10 @@ from app.tools.notion import (
 llm = ChatOllama(
     model = "qwen2.5:3b",
     temperature=0.7,
+    base_url= os.getenv(
+        "OLLAMA_BASE_URL",
+        "http://localhost:11434"
+    ),
     
 )
 llm_with_tools = llm.bind_tools(
