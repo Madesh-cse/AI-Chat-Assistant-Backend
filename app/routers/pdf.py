@@ -155,7 +155,19 @@ async def upload_pdf(
         )
 
         # ----------------------------------------------------
-        # Create vector store
+        # Add contextual headers (LLM-generated blurb per chunk,
+        # improves retrieval precision — see pdf_service)
+        # ----------------------------------------------------
+
+        print("\nGenerating contextual headers for chunks...")
+
+        chunks = pdf_service.add_contextual_headers(
+            chunks,
+            documents,
+        )
+
+        # ----------------------------------------------------
+        # Create hybrid vector store (FAISS + BM25 chunk store)
         # ----------------------------------------------------
 
         print("\nCreating vector store...")
@@ -379,7 +391,7 @@ async def ask_pdf_question(
         )
 
         # ----------------------------------------------------
-        # Ask PDF service
+        # Ask PDF service (hybrid retrieval + rerank internally)
         # ----------------------------------------------------
 
         answer = pdf_service.ask_question(
