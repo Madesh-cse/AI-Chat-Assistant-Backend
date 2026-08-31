@@ -1,0 +1,59 @@
+services:
+  backend:
+    build: .
+    container_name: ai-chat-backend
+    ports:
+      - "8000:8000"
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_URL: postgresql://postgres:Madesh13%40paru@postgres:5432/ai_chatbot
+      REDIS_URL: redis://redis:6379/0
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-chat-postgres
+
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Madesh13@paru
+      POSTGRES_DB: ai_chatbot
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ai_chatbot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai-chat-redis
+
+    ports:
+      - "6379:6379"
+
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
