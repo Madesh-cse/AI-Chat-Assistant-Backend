@@ -805,6 +805,9 @@ class ChatService:
         message: str,
         user_id: int,
         conversation_id: int | None = None,
+        stack_overflow_enabled: bool = False,
+        notion_enabled: bool = False,
+        language: str = "English",
     ):
 
         total_start = time.perf_counter()
@@ -906,9 +909,38 @@ class ChatService:
             # --------------------------------
             # BUILD MESSAGES
             # --------------------------------
+            
+            tool_instructions = []
+            if stack_overflow_enabled:
+              tool_instructions.append(
+                "Stack Overflow search is enabled. "
+                "Use the Stack Overflow tool when the question requires "
+                "a concrete coding error, exception, or library/API solution."
+            )
+            
+            if notion_enabled:
+              tool_instructions.append(
+              "Notion search is enabled. "
+              "Use the Notion tool when the user asks about information "
+              "stored in their Notion workspace."
+            )
+              
+            language_instruction = (
+              f"Respond in {language}. "
+              "Keep technical terms, code, API names, and library names unchanged."
+            )
+            
+            user_content = "\n\n".join(
+            [
+               language_instruction,
+               *tool_instructions,
+                message,
+            ])
 
             messages = [
                 SYSTEM_MESSAGE,
+                SystemMessage(
+                    content=f"Respond in {language}."),
                 *history_messages,
                 HumanMessage(
                     content=message
@@ -1294,9 +1326,7 @@ class ChatService:
 
             db.close()
 
-    # ========================================================
     # REFRESH REDIS HISTORY
-    # ========================================================
 
     def refresh_history_cache(
         self,
