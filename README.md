@@ -1,5 +1,4 @@
 
-````markdown
 # 🤖 AI Chat Assistant — Backend
 
 A production-oriented AI assistant backend built using **FastAPI, Python, PostgreSQL, Redis, LangChain, LangGraph, Ollama, Docker, and JWT authentication**.
