@@ -45,6 +45,15 @@ The backend handles:
 
 ---
 
+## Application Image
+![image alt](https://github.com/Madesh-cse/AI-Chat-Assistant-Backend/blob/06b3f80231ee22e6547e44ebe9a1383372d4c100/Screenshot%20(79).png)
+![image alt](https://github.com/Madesh-cse/AI-Chat-Assistant-Backend/blob/06b3f80231ee22e6547e44ebe9a1383372d4c100/Screenshot%20(78).png)
+![image alt](https://github.com/Madesh-cse/AI-Chat-Assistant-Backend/blob/06b3f80231ee22e6547e44ebe9a1383372d4c100/Screenshot%20(80).png)
+![image alt](https://github.com/Madesh-cse/AI-Chat-Assistant-Backend/blob/06b3f80231ee22e6547e44ebe9a1383372d4c100/Screenshot%20(81).png)
+![image alt](https://github.com/Madesh-cse/AI-Chat-Assistant-Backend/blob/06b3f80231ee22e6547e44ebe9a1383372d4c100/Screenshot%20(82).png)
+![image alt](https://github.com/Madesh-cse/AI-Chat-Assistant-Backend/blob/06b3f80231ee22e6547e44ebe9a1383372d4c100/Screenshot%20(83).png)
+![image alt](https://github.com/Madesh-cse/AI-Chat-Assistant-Backend/blob/06b3f80231ee22e6547e44ebe9a1383372d4c100/Screenshot%20(84).png)
+
 ## ⚡ Streaming Responses
 
 FastAPI returns LLM output progressively using:
