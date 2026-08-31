@@ -24,11 +24,6 @@ router = APIRouter(
 )
 
 
-# ==================================================
-# NORMAL CHAT API
-# ==================================================
-
-
 @router.post(
     "/",
     response_model=ChatResponse,
@@ -39,19 +34,12 @@ async def chat(
     db: Session = Depends(get_db),
 ):
     try:
-        # ------------------------------------------
-        # VALIDATE CONVERSATION ID
-        # ------------------------------------------
 
         if request.conversation_id is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Conversation ID is required",
             )
-
-        # ------------------------------------------
-        # VERIFY CONVERSATION BELONGS TO USER
-        # ------------------------------------------
 
         conversation = ChatDatabase.get_conversation_for_user(
             db=db,
@@ -64,10 +52,6 @@ async def chat(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Conversation not found",
             )
-
-        # ------------------------------------------
-        # CHAT SERVICE
-        # ------------------------------------------
 
         response = chat_service.chat(
             message=request.message,
@@ -94,11 +78,7 @@ async def chat(
             detail="Failed to process chat request",
         )
 
-
-# ==================================================
 # STREAMING CHAT API
-# ==================================================
-
 
 @router.post("/stream")
 async def chat_stream(
@@ -107,22 +87,8 @@ async def chat_stream(
     db: Session = Depends(get_db),
 ):
 
-    # ------------------------------------------
-    # OPTIONAL CONVERSATION ID
-    # ------------------------------------------
-    #
-    # If conversation_id is provided:
-    #   Verify ownership.
-    #
-    # If conversation_id is None:
-    #   ChatService will create a new conversation.
-    #
 
     if request.conversation_id is not None:
-
-        # ------------------------------------------
-        # VERIFY CONVERSATION BELONGS TO USER
-        # ------------------------------------------
 
         conversation = ChatDatabase.get_conversation_for_user(
             db=db,
@@ -136,9 +102,6 @@ async def chat_stream(
                 detail="Conversation not found",
             )
 
-    # ------------------------------------------
-    # DEBUG INFORMATION
-    # ------------------------------------------
 
     print("\n==============================")
     print("STREAM ROUTER")
@@ -158,12 +121,13 @@ async def chat_stream(
         "Message:",
         request.message,
     )
+    print("Stack Overflow:", request.stack_overflow_enabled)
+    print("Notion:", request.notion_enabled)
+    print("Language:", request.language)
+
 
     print("==============================\n")
 
-    # ------------------------------------------
-    # STREAM GENERATOR
-    # ------------------------------------------
 
     def generate():
 
@@ -173,6 +137,9 @@ async def chat_stream(
                 message=request.message,
                 conversation_id=request.conversation_id,
                 user_id=current_user.id,
+                stack_overflow_enabled=request.stack_overflow_enabled,
+                notion_enabled=request.notion_enabled,
+                language=request.language,
             ):
                 yield chunk
 
