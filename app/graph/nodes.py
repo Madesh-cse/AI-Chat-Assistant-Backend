@@ -29,7 +29,7 @@ def llm_node(state: ChatState) -> dict:
     # LLM INVOKE
 
     print("\n==============================")
-    print("CALLING OLLAMA")
+    print("CALLING GROQ")
     print("==============================")
 
     llm_start = time.perf_counter()
