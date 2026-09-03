@@ -40,7 +40,6 @@ from app.core.chat_history_cache import (
     set_cached_history,
 )
 
-
 # ============================================================
 # TOOLS
 # ============================================================
@@ -62,8 +61,7 @@ TOOLS = {
 # SYSTEM MESSAGE
 # ============================================================
 
-SYSTEM_MESSAGE = SystemMessage(
-    content="""
+SYSTEM_MESSAGE = SystemMessage(content="""
 You are a helpful, accurate AI assistant.
 
 CONVERSATION CONTEXT RULES:
@@ -137,13 +135,13 @@ You MUST understand "it" as Python.
 11. Answer the current question directly.
 
 12. Do not mention these internal conversation rules in your answer.
-"""
-)
+""")
 
 
 # ============================================================
 # CHAT SERVICE
 # ============================================================
+
 
 class ChatService:
 
@@ -169,9 +167,7 @@ class ChatService:
             # ----------------------------
 
             if role in ("user", "human"):
-                return HumanMessage(
-                    content=str(content)
-                )
+                return HumanMessage(content=str(content))
 
             # ----------------------------
             # ASSISTANT
@@ -191,9 +187,7 @@ class ChatService:
                         tool_calls=tool_calls,
                     )
 
-                return AIMessage(
-                    content=str(content)
-                )
+                return AIMessage(content=str(content))
 
             # ----------------------------
             # TOOL
@@ -201,10 +195,7 @@ class ChatService:
 
             if role == "tool":
 
-                tool_call_id = (
-                    message.get("tool_call_id")
-                    or message.get("toolCallId")
-                )
+                tool_call_id = message.get("tool_call_id") or message.get("toolCallId")
 
                 if not tool_call_id:
                     return None
@@ -220,9 +211,7 @@ class ChatService:
 
             if role == "system":
 
-                return SystemMessage(
-                    content=str(content)
-                )
+                return SystemMessage(content=str(content))
 
         return None
 
@@ -239,14 +228,10 @@ class ChatService:
 
         for message in history:
 
-            normalized_message = (
-                self.normalize_message(message)
-            )
+            normalized_message = self.normalize_message(message)
 
             if normalized_message is not None:
-                normalized.append(
-                    normalized_message
-                )
+                normalized.append(normalized_message)
 
         return normalized
 
@@ -313,10 +298,7 @@ class ChatService:
         messages: list[BaseMessage],
     ) -> list[dict[str, Any]]:
 
-        return [
-            self.serialize_message(message)
-            for message in messages
-        ]
+        return [self.serialize_message(message) for message in messages]
 
     # ========================================================
     # EXECUTE TOOLS
@@ -347,19 +329,13 @@ class ChatService:
                 {},
             )
 
-            tool_call_id = tool_call.get(
-                "id"
-            )
+            tool_call_id = tool_call.get("id")
 
             if not tool_call_id:
 
-                tool_call_id = (
-                    f"tool_call_{uuid.uuid4().hex}"
-                )
+                tool_call_id = f"tool_call_{uuid.uuid4().hex}"
 
-            tool = TOOLS.get(
-                tool_name
-            )
+            tool = TOOLS.get(tool_name)
 
             # --------------------------------
             # TOOL NOT FOUND
@@ -367,10 +343,7 @@ class ChatService:
 
             if not tool:
 
-                result = (
-                    f"Tool '{tool_name}' "
-                    f"is not available."
-                )
+                result = f"Tool '{tool_name}' " f"is not available."
 
             # --------------------------------
             # EXECUTE TOOL
@@ -386,16 +359,11 @@ class ChatService:
                     ):
                         tool_args = {}
 
-                    result = tool.invoke(
-                        tool_args
-                    )
+                    result = tool.invoke(tool_args)
 
                 except Exception as e:
 
-                    result = (
-                        f"Tool '{tool_name}' "
-                        f"failed: {str(e)}"
-                    )
+                    result = f"Tool '{tool_name}' " f"failed: {str(e)}"
 
             tool_messages.append(
                 ToolMessage(
@@ -426,9 +394,7 @@ class ChatService:
 
         if cached_history is not None:
 
-            return self.normalize_history(
-                cached_history
-            )
+            return self.normalize_history(cached_history)
 
         # --------------------------------
         # DATABASE
@@ -452,20 +418,12 @@ class ChatService:
             # USER
             if role == "user":
 
-                messages.append(
-                    HumanMessage(
-                        content=content
-                    )
-                )
+                messages.append(HumanMessage(content=content))
 
             # ASSISTANT
             elif role == "assistant":
 
-                messages.append(
-                    AIMessage(
-                        content=content
-                    )
-                )
+                messages.append(AIMessage(content=content))
 
             # TOOL
             elif role == "tool":
@@ -567,12 +525,10 @@ class ChatService:
             if not title:
                 title = "New Conversation"
 
-            conversation = (
-                ChatDatabase.create_conversation(
-                    db=db,
-                    title=title,
-                    user_id=user_id,
-                )
+            conversation = ChatDatabase.create_conversation(
+                db=db,
+                title=title,
+                user_id=user_id,
             )
 
             return conversation
@@ -581,19 +537,16 @@ class ChatService:
         # EXISTING CONVERSATION
         # --------------------------------
 
-        conversation = (
-            ChatDatabase.get_conversation_for_user(
-                db=db,
-                conversation_id=conversation_id,
-                user_id=user_id,
-            )
+        conversation = ChatDatabase.get_conversation_for_user(
+            db=db,
+            conversation_id=conversation_id,
+            user_id=user_id,
         )
 
         if not conversation:
 
             raise ValueError(
-                f"Conversation {conversation_id} "
-                f"does not exist for user {user_id}."
+                f"Conversation {conversation_id} " f"does not exist for user {user_id}."
             )
 
         return conversation
@@ -619,13 +572,11 @@ class ChatService:
             # GET / CREATE CONVERSATION
             # --------------------------------
 
-            conversation = (
-                self.get_or_create_conversation(
-                    db=db,
-                    user_id=user_id,
-                    conversation_id=conversation_id,
-                    message=message,
-                )
+            conversation = self.get_or_create_conversation(
+                db=db,
+                user_id=user_id,
+                conversation_id=conversation_id,
+                message=message,
             )
 
             conversation_id = conversation.id
@@ -649,11 +600,9 @@ class ChatService:
 
                 if cached_response:
 
-                    history_messages = (
-                        self.load_conversation_history(
-                            db=db,
-                            conversation_id=conversation_id,
-                        )
+                    history_messages = self.load_conversation_history(
+                        db=db,
+                        conversation_id=conversation_id,
                     )
 
                     self.save_message(
@@ -674,12 +623,8 @@ class ChatService:
                         conversation_id=conversation_id,
                         history_messages=history_messages,
                         new_messages=[
-                            HumanMessage(
-                                content=message
-                            ),
-                            AIMessage(
-                                content=cached_response
-                            ),
+                            HumanMessage(content=message),
+                            AIMessage(content=cached_response),
                         ],
                     )
 
@@ -689,11 +634,9 @@ class ChatService:
             # LOAD HISTORY
             # --------------------------------
 
-            history_messages = (
-                self.load_conversation_history(
-                    db=db,
-                    conversation_id=conversation_id,
-                )
+            history_messages = self.load_conversation_history(
+                db=db,
+                conversation_id=conversation_id,
             )
 
             # --------------------------------
@@ -703,9 +646,7 @@ class ChatService:
             messages = [
                 SYSTEM_MESSAGE,
                 *history_messages,
-                HumanMessage(
-                    content=message
-                ),
+                HumanMessage(content=message),
             ]
 
             # --------------------------------
@@ -753,12 +694,8 @@ class ChatService:
                     conversation_id=conversation_id,
                     history_messages=history_messages,
                     new_messages=[
-                        HumanMessage(
-                            content=message
-                        ),
-                        AIMessage(
-                            content=response
-                        ),
+                        HumanMessage(content=message),
+                        AIMessage(content=response),
                     ],
                 )
 
@@ -775,15 +712,9 @@ class ChatService:
 
             db.commit()
 
-            total_time = (
-                time.perf_counter()
-                - total_start
-            )
+            total_time = time.perf_counter() - total_start
 
-            print(
-                f"TOTAL REQUEST TIME: "
-                f"{total_time:.2f}s"
-            )
+            print(f"TOTAL REQUEST TIME: " f"{total_time:.2f}s")
 
             return response
 
@@ -820,13 +751,11 @@ class ChatService:
             # GET / CREATE CONVERSATION
             # --------------------------------
 
-            conversation = (
-                self.get_or_create_conversation(
-                    db=db,
-                    user_id=user_id,
-                    conversation_id=conversation_id,
-                    message=message,
-                )
+            conversation = self.get_or_create_conversation(
+                db=db,
+                user_id=user_id,
+                conversation_id=conversation_id,
+                message=message,
             )
 
             conversation_id = conversation.id
@@ -850,11 +779,9 @@ class ChatService:
 
                 if cached_response:
 
-                    history_messages = (
-                        self.load_conversation_history(
-                            db=db,
-                            conversation_id=conversation_id,
-                        )
+                    history_messages = self.load_conversation_history(
+                        db=db,
+                        conversation_id=conversation_id,
                     )
 
                     self.save_message(
@@ -875,12 +802,8 @@ class ChatService:
                         conversation_id=conversation_id,
                         history_messages=history_messages,
                         new_messages=[
-                            HumanMessage(
-                                content=message
-                            ),
-                            AIMessage(
-                                content=cached_response
-                            ),
+                            HumanMessage(content=message),
+                            AIMessage(content=cached_response),
                         ],
                     )
 
@@ -893,60 +816,58 @@ class ChatService:
             # LOAD HISTORY
             # --------------------------------
 
-            history_messages = (
-                self.load_conversation_history(
-                    db=db,
-                    conversation_id=conversation_id,
-                )
+            history_messages = self.load_conversation_history(
+                db=db,
+                conversation_id=conversation_id,
             )
 
-            history_messages = (
-                self.normalize_history(
-                    history_messages
-                )
-            )
+            history_messages = self.normalize_history(history_messages)
 
             # --------------------------------
             # BUILD MESSAGES
             # --------------------------------
-            
+
             tool_instructions = []
             if stack_overflow_enabled:
-              tool_instructions.append(
-                "Stack Overflow search is enabled. "
-                "Use the Stack Overflow tool when the question requires "
-                "a concrete coding error, exception, or library/API solution."
-            )
-            
+                tool_instructions.append(
+                    "Stack Overflow search is enabled. "
+                    "Use the Stack Overflow tool when the question requires "
+                    "a concrete coding error, exception, or library/API solution."
+                )
+
             if notion_enabled:
-              tool_instructions.append(
-              "Notion search is enabled. "
-              "Use the Notion tool when the user asks about information "
-              "stored in their Notion workspace."
-            )
-              
+                tool_instructions.append(
+                    "Notion search is enabled. "
+                    "Use the Notion tool when the user asks about information "
+                    "stored in their Notion workspace."
+                )
+
             language_instruction = (
-              f"Respond in {language}. "
-              "Keep technical terms, code, API names, and library names unchanged."
+                f"Respond in {language}. "
+                "Keep technical terms, code, API names, and library names unchanged."
             )
-            
+
             user_content = "\n\n".join(
-            [
-               language_instruction,
-               *tool_instructions,
-                message,
-            ])
+                [
+                    language_instruction,
+                    *tool_instructions,
+                    message,
+                ]
+            )
 
             messages = [
                 SYSTEM_MESSAGE,
                 SystemMessage(
-                    content=f"Respond in {language}."),
-                *history_messages,
-                HumanMessage(
-                    content=message
+                    content="\n\n".join(
+                        [
+                            language_instruction,
+                            *tool_instructions,
+                        ]
+                    )
                 ),
+                *history_messages,
+                HumanMessage(content=message),
             ]
-
             # --------------------------------
             # SAVE USER MESSAGE
             # --------------------------------
@@ -964,29 +885,19 @@ class ChatService:
             # FIRST LLM CALL
             # --------------------------------
 
-            first_llm_start = (
-                time.perf_counter()
-            )
+            first_llm_start = time.perf_counter()
 
             first_token_time = None
 
             chunks = []
 
-            for chunk in llm_with_tools.stream(
-                messages
-            ):
+            for chunk in llm_with_tools.stream(messages):
 
                 if first_token_time is None:
 
-                    first_token_time = (
-                        time.perf_counter()
-                        - first_llm_start
-                    )
+                    first_token_time = time.perf_counter() - first_llm_start
 
-                    print(
-                        "TIME TO FIRST TOKEN: "
-                        f"{first_token_time:.2f}s"
-                    )
+                    print("TIME TO FIRST TOKEN: " f"{first_token_time:.2f}s")
 
                 chunks.append(chunk)
 
@@ -1032,24 +943,15 @@ class ChatService:
                     ):
                         continue
 
-                    tool_call_id = (
-                        tool_call.get("id")
-                    )
+                    tool_call_id = tool_call.get("id")
 
-                    index = tool_call.get(
-                        "index"
-                    )
+                    index = tool_call.get("index")
 
-                    key = (
-                        tool_call_id
-                        or index
-                    )
+                    key = tool_call_id or index
 
                     if key is None:
 
-                        key = len(
-                            tool_call_map
-                        )
+                        key = len(tool_call_map)
 
                     if key not in tool_call_map:
 
@@ -1057,51 +959,35 @@ class ChatService:
                             "name": "",
                             "args": {},
                             "id": (
-                                tool_call_id
-                                or (
-                                    f"tool_call_"
-                                    f"{uuid.uuid4().hex}"
-                                )
+                                tool_call_id or (f"tool_call_" f"{uuid.uuid4().hex}")
                             ),
                         }
 
-                    current = (
-                        tool_call_map[key]
-                    )
+                    current = tool_call_map[key]
 
                     if tool_call.get("name"):
 
-                        current["name"] = (
-                            tool_call["name"]
-                        )
+                        current["name"] = tool_call["name"]
 
                     if tool_call_id:
 
-                        current["id"] = (
-                            tool_call_id
-                        )
+                        current["id"] = tool_call_id
 
-                    args = tool_call.get(
-                        "args"
-                    )
+                    args = tool_call.get("args")
 
                     if isinstance(
                         args,
                         dict,
                     ):
 
-                        current[
-                            "args"
-                        ].update(args)
+                        current["args"].update(args)
 
                     elif isinstance(
                         args,
                         str,
                     ):
 
-                        current[
-                            "_raw_args"
-                        ] = (
+                        current["_raw_args"] = (
                             current.get(
                                 "_raw_args",
                                 "",
@@ -1113,9 +999,7 @@ class ChatService:
             # PARSE TOOL ARGUMENTS
             # --------------------------------
 
-            for call in (
-                tool_call_map.values()
-            ):
+            for call in tool_call_map.values():
 
                 if not call.get("name"):
                     continue
@@ -1125,25 +1009,18 @@ class ChatService:
                     None,
                 )
 
-                if (
-                    raw_args
-                    and not call["args"]
-                ):
+                if raw_args and not call["args"]:
 
                     try:
 
-                        parsed_args = json.loads(
-                            raw_args
-                        )
+                        parsed_args = json.loads(raw_args)
 
                         if isinstance(
                             parsed_args,
                             dict,
                         ):
 
-                            call["args"] = (
-                                parsed_args
-                            )
+                            call["args"] = parsed_args
 
                     except json.JSONDecodeError:
 
@@ -1184,26 +1061,16 @@ class ChatService:
                         conversation_id=conversation_id,
                         history_messages=history_messages,
                         new_messages=[
-                            HumanMessage(
-                                content=message
-                            ),
-                            AIMessage(
-                                content=content
-                            ),
+                            HumanMessage(content=message),
+                            AIMessage(content=content),
                         ],
                     )
 
                     db.commit()
 
-                total_time = (
-                    time.perf_counter()
-                    - total_start
-                )
+                total_time = time.perf_counter() - total_start
 
-                print(
-                    "TOTAL REQUEST TIME: "
-                    f"{total_time:.2f}s"
-                )
+                print("TOTAL REQUEST TIME: " f"{total_time:.2f}s")
 
                 return
 
@@ -1220,11 +1087,7 @@ class ChatService:
             # EXECUTE TOOLS
             # --------------------------------
 
-            tool_messages = (
-                self.execute_tools(
-                    response
-                )
-            )
+            tool_messages = self.execute_tools(response)
 
             # --------------------------------
             # FINAL LLM MESSAGES
@@ -1240,29 +1103,19 @@ class ChatService:
             # FINAL LLM CALL
             # --------------------------------
 
-            final_start = (
-                time.perf_counter()
-            )
+            final_start = time.perf_counter()
 
             final_first_token = None
 
             ai_content = ""
 
-            for chunk in llm_with_tools.stream(
-                final_messages
-            ):
+            for chunk in llm_with_tools.stream(final_messages):
 
                 if final_first_token is None:
 
-                    final_first_token = (
-                        time.perf_counter()
-                        - final_start
-                    )
+                    final_first_token = time.perf_counter() - final_start
 
-                    print(
-                        "FINAL TIME TO FIRST TOKEN: "
-                        f"{final_first_token:.2f}s"
-                    )
+                    print("FINAL TIME TO FIRST TOKEN: " f"{final_first_token:.2f}s")
 
                 if chunk.content:
 
@@ -1294,28 +1147,18 @@ class ChatService:
                     conversation_id=conversation_id,
                     history_messages=history_messages,
                     new_messages=[
-                        HumanMessage(
-                            content=message
-                        ),
+                        HumanMessage(content=message),
                         response,
                         *tool_messages,
-                        AIMessage(
-                            content=ai_content
-                        ),
+                        AIMessage(content=ai_content),
                     ],
                 )
 
             db.commit()
 
-            total_time = (
-                time.perf_counter()
-                - total_start
-            )
+            total_time = time.perf_counter() - total_start
 
-            print(
-                "TOTAL REQUEST TIME: "
-                f"{total_time:.2f}s"
-            )
+            print("TOTAL REQUEST TIME: " f"{total_time:.2f}s")
 
         except Exception:
 
@@ -1351,19 +1194,11 @@ class ChatService:
 
             if role == "user":
 
-                messages.append(
-                    HumanMessage(
-                        content=content
-                    )
-                )
+                messages.append(HumanMessage(content=content))
 
             elif role == "assistant":
 
-                messages.append(
-                    AIMessage(
-                        content=content
-                    )
-                )
+                messages.append(AIMessage(content=content))
 
             elif role == "tool":
 
@@ -1403,19 +1238,15 @@ class ChatService:
 
         try:
 
-            history_messages = (
-                self.load_conversation_history(
-                    db=db,
-                    conversation_id=conversation_id,
-                )
+            history_messages = self.load_conversation_history(
+                db=db,
+                conversation_id=conversation_id,
             )
 
             messages = [
                 SYSTEM_MESSAGE,
                 *history_messages,
-                HumanMessage(
-                    content=message
-                ),
+                HumanMessage(content=message),
             ]
 
             result = chat_graph.invoke(
