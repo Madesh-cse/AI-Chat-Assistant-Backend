@@ -1,6 +1,7 @@
 import os
 
-from langchain_openai import ChatOpenAI # type: ignore
+from langchain_nvidia_ai_endpoints import ChatNVIDIA # type: ignore
+
 from app.tools.weather import get_weather
 from app.tools.city_image import get_city_image
 from app.tools.news import get_news
@@ -16,18 +17,41 @@ from app.tools.notion import (
 )
 
 
-llm = ChatOpenAI(
-    api_key=os.getenv("OPENROUTER_API_KEY"),
-    base_url="https://openrouter.ai/api/v1",
-    model=os.getenv(
-        "OPENROUTER_MODEL",
-        "meta-llama/llama-3.3-70b-instruct",
-    ),
-    temperature=0.7,
+# --------------------------------
+# NVIDIA LLM
+# --------------------------------
+
+llm = ChatNVIDIA(
+    model="deepseek-ai/deepseek-v4-pro-0813",
+    api_key=os.getenv("NVIDIA_API_KEY"),
+    temperature=1,
+    top_p=0.95,
+    max_tokens=16384,
+    seed=42,
+    chat_template_kwargs={
+        "thinking": False,
+    },
 )
 
+
+# --------------------------------
+# LLM + TOOLS
+# --------------------------------
 
 llm_with_tools = llm.bind_tools(
-    [get_weather,get_city_image, get_news,search_wikipedia,web_search,get_movie,   # Plugin
-search_stackoverflow, search_notion,read_notion_page ]
+    [
+        get_weather,
+        get_city_image,
+        get_news,
+        search_wikipedia,
+        web_search,
+        get_movie,
+
+        # Plugin tools
+        search_stackoverflow,
+        search_notion,
+        read_notion_page,
+    ]
 )
+# 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
+# REMOVED_OPENROUTER_API_KEY

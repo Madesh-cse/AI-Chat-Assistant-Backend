@@ -13,8 +13,7 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/ai_chatbot
       REDIS_URL: redis://redis:6379/0
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
-      OPENROUTER_MODEL: ${OPENROUTER_MODEL}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY}
 
     depends_on:
       postgres:

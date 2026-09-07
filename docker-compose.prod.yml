@@ -17,9 +17,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: redis://redis:6379/0
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
-      OPENROUTER_MODEL: ${OPENROUTER_MODEL}
-      # OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY}
 
     depends_on:
       postgres:
