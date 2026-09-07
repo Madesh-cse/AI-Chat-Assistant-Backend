@@ -141,7 +141,8 @@ async def chat_stream(
                 notion_enabled=request.notion_enabled,
                 language=request.language,
             ):
-                yield chunk
+                if chunk:
+                  yield chunk
 
         except Exception as e:
 
