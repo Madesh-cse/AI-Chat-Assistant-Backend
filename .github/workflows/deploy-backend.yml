@@ -37,8 +37,26 @@ jobs:
             docker compose -f docker-compose.prod.yml ps
 
             echo "❤️ Checking backend..."
-            curl -f http://localhost:8000/
 
+            for i in {1..10}; do
+              if curl -f http://localhost:8000/; then
+                echo ""
+                echo "✅ Backend is healthy!"
+                break
+              fi
+
+              if [ "$i" -eq 10 ]; then
+                echo "❌ Backend failed health check"
+                echo "📋 Backend logs:"
+                docker compose -f docker-compose.prod.yml logs --tail=100 backend
+                exit 1
+              fi
+
+              echo "⏳ Backend not ready yet... attempt $i/10"
+              sleep 5
+            done
+
+            echo ""
             echo "================================="
             echo "✅ Deployment successful!"
             echo "================================="
