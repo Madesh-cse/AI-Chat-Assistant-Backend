@@ -1,28 +1,44 @@
-name: Test EC2 Connection
+name: Deploy Backend to EC2
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
-  test-connection:
-    name: Test SSH Connection
+  deploy:
+    name: Deploy to EC2
     runs-on: ubuntu-latest
 
     steps:
-      - name: Connect to EC2
+      - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
+
           script: |
-            echo "Connected to EC2 successfully!"
-            echo "Server:"
-            hostname
-            echo "User:"
-            whoami
-            echo "Project:"
+            set -e
+
+            echo "================================="
+            echo "🚀 Starting backend deployment"
+            echo "================================="
+
             cd ~/AI-Chat-Assistant-Backend
-            pwd
-            echo "Git status:"
-            git status
+
+            echo "📥 Pulling latest code..."
+            git pull origin main
+
+            echo "🐳 Building and starting containers..."
+            docker compose -f docker-compose.prod.yml up -d --build
+
+            echo "📦 Checking containers..."
+            docker compose -f docker-compose.prod.yml ps
+
+            echo "❤️ Checking backend..."
+            curl -f http://localhost:8000/
+
+            echo "================================="
+            echo "✅ Deployment successful!"
+            echo "================================="
