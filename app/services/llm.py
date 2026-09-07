@@ -53,5 +53,3 @@ llm_with_tools = llm.bind_tools(
         read_notion_page,
     ]
 )
-# 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
-# REMOVED_OPENROUTER_API_KEY
