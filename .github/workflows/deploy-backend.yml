@@ -27,13 +27,19 @@ jobs:
 
             cd ~/AI-Chat-Assistant-Backend
 
-            echo "📥 Pulling latest code..."
-            git pull origin main
+            echo "📥 Syncing latest code from GitHub..."
+
+            git fetch origin
+            git reset --hard origin/main
+
+            echo "✅ Code synchronized with origin/main"
 
             echo "🐳 Building and starting containers..."
+
             docker compose -f docker-compose.prod.yml up -d --build
 
             echo "📦 Checking containers..."
+
             docker compose -f docker-compose.prod.yml ps
 
             echo "❤️ Checking backend..."
@@ -47,6 +53,7 @@ jobs:
 
               if [ "$i" -eq 10 ]; then
                 echo "❌ Backend failed health check"
+                echo ""
                 echo "📋 Backend logs:"
                 docker compose -f docker-compose.prod.yml logs --tail=100 backend
                 exit 1
