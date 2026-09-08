@@ -24,11 +24,6 @@ llm = ChatOpenAI(
     ),
     temperature=0.7,
     max_tokens=8192,
-    extra_body={
-        "reasoning": {
-            "enabled": True
-        }
-    },
 )
 
 
