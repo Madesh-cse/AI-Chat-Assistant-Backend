@@ -137,17 +137,11 @@ You MUST understand "it" as Python.
 12. Do not mention these internal conversation rules in your answer.
 """)
 
-
-# ============================================================
 # CHAT SERVICE
-# ============================================================
-
 
 class ChatService:
 
-    # ========================================================
     # MESSAGE NORMALIZATION
-    # ========================================================
 
     def normalize_message(
         self,
@@ -215,9 +209,7 @@ class ChatService:
 
         return None
 
-    # ========================================================
     # NORMALIZE HISTORY
-    # ========================================================
 
     def normalize_history(
         self,
@@ -235,10 +227,7 @@ class ChatService:
 
         return normalized
 
-    # ========================================================
     # SERIALIZE MESSAGE
-    # ========================================================
-
     def serialize_message(
         self,
         message: BaseMessage,
@@ -289,9 +278,8 @@ class ChatService:
             "content": str(message.content),
         }
 
-    # ========================================================
+
     # SERIALIZE HISTORY
-    # ========================================================
 
     def serialize_history(
         self,
@@ -300,9 +288,7 @@ class ChatService:
 
         return [self.serialize_message(message) for message in messages]
 
-    # ========================================================
     # EXECUTE TOOLS
-    # ========================================================
 
     def execute_tools(
         self,
@@ -374,9 +360,7 @@ class ChatService:
 
         return tool_messages
 
-    # ========================================================
     # LOAD CONVERSATION HISTORY
-    # ========================================================
 
     def load_conversation_history(
         self,
@@ -457,9 +441,7 @@ class ChatService:
 
         return messages
 
-    # ========================================================
     # UPDATE HISTORY CACHE
-    # ========================================================
 
     def update_history_cache(
         self,
@@ -480,9 +462,7 @@ class ChatService:
 
         return updated_history
 
-    # ========================================================
     # SAVE MESSAGE
-    # ========================================================
 
     def save_message(
         self,
@@ -502,9 +482,7 @@ class ChatService:
             content=content,
         )
 
-    # ========================================================
     # GET / CREATE CONVERSATION
-    # ========================================================
 
     def get_or_create_conversation(
         self,
@@ -551,9 +529,7 @@ class ChatService:
 
         return conversation
 
-    # ========================================================
     # NORMAL CHAT
-    # ========================================================
 
     def chat(
         self,
@@ -727,19 +703,17 @@ class ChatService:
 
             db.close()
 
-    # ========================================================
     # STREAM CHAT
-    # ========================================================
-
+    
     def stream_chat(
-        self,
-        message: str,
-        user_id: int,
-        conversation_id: int | None = None,
-        stack_overflow_enabled: bool = False,
-        notion_enabled: bool = False,
-        language: str = "English",
-    ):
+    self,
+    message: str,
+    user_id: int,
+    conversation_id: int | None = None,
+    stack_overflow_enabled: bool = False,
+    notion_enabled: bool = False,
+    language: str = "English",
+):
 
         total_start = time.perf_counter()
 
@@ -821,14 +795,18 @@ class ChatService:
                 conversation_id=conversation_id,
             )
 
-            history_messages = self.normalize_history(history_messages)
+            history_messages = self.normalize_history(
+                history_messages
+            )
 
             # --------------------------------
-            # BUILD MESSAGES
+            # BUILD TOOL INSTRUCTIONS
             # --------------------------------
 
             tool_instructions = []
+
             if stack_overflow_enabled:
+
                 tool_instructions.append(
                     "Stack Overflow search is enabled. "
                     "Use the Stack Overflow tool when the question requires "
@@ -836,27 +814,29 @@ class ChatService:
                 )
 
             if notion_enabled:
+
                 tool_instructions.append(
                     "Notion search is enabled. "
                     "Use the Notion tool when the user asks about information "
                     "stored in their Notion workspace."
                 )
 
+            # --------------------------------
+            # LANGUAGE INSTRUCTION
+            # --------------------------------
+
             language_instruction = (
                 f"Respond in {language}. "
                 "Keep technical terms, code, API names, and library names unchanged."
             )
 
-            user_content = "\n\n".join(
-                [
-                    language_instruction,
-                    *tool_instructions,
-                    message,
-                ]
-            )
+            # --------------------------------
+            # BUILD MESSAGES
+            # --------------------------------
 
             messages = [
                 SYSTEM_MESSAGE,
+
                 SystemMessage(
                     content="\n\n".join(
                         [
@@ -865,9 +845,14 @@ class ChatService:
                         ]
                     )
                 ),
+
                 *history_messages,
-                HumanMessage(content=message),
+
+                HumanMessage(
+                    content=message
+                ),
             ]
+
             # --------------------------------
             # SAVE USER MESSAGE
             # --------------------------------
@@ -881,165 +866,113 @@ class ChatService:
 
             db.commit()
 
-            # --------------------------------
+            # ================================================
             # FIRST LLM CALL
-            # --------------------------------
+            # ================================================
+
+            print("\n================================")
+            print("FIRST LLM CALL")
+            print("================================")
 
             first_llm_start = time.perf_counter()
 
             first_token_time = None
 
-            chunks = []
+            # This will contain the complete AIMessageChunk
+            # after combining all streamed chunks.
+            response = None
 
             for chunk in llm_with_tools.stream(messages):
 
+                # --------------------------------
+                # TIME TO FIRST TOKEN
+                # --------------------------------
+
                 if first_token_time is None:
 
-                    first_token_time = time.perf_counter() - first_llm_start
+                    first_token_time = (
+                        time.perf_counter()
+                        - first_llm_start
+                    )
 
-                    print("TIME TO FIRST TOKEN: " f"{first_token_time:.2f}s")
+                    print(
+                        "TIME TO FIRST TOKEN: "
+                        f"{first_token_time:.2f}s"
+                    )
 
-                chunks.append(chunk)
+                # --------------------------------
+                # COMBINE STREAMED CHUNKS
+                # --------------------------------
 
+                if response is None:
+
+                    response = chunk
+
+                else:
+
+                    response = response + chunk
+
+                # --------------------------------
+                # STREAM NORMAL CONTENT
+                # --------------------------------
+
+                # Tool-call chunks normally have empty
+                # content, so they are NOT sent to frontend.
                 if chunk.content:
 
                     yield chunk.content
 
             # --------------------------------
-            # COMBINE CONTENT
+            # SAFETY CHECK
             # --------------------------------
 
-            content = ""
+            if response is None:
 
-            for chunk in chunks:
-
-                if chunk.content:
-
-                    content += chunk.content
-
-            # --------------------------------
-            # COLLECT TOOL CALLS
-            # --------------------------------
-
-            tool_calls = []
-            tool_call_map = {}
-
-            for chunk in chunks:
-
-                chunk_tool_calls = getattr(
-                    chunk,
-                    "tool_calls",
-                    [],
+                print(
+                    "WARNING: LLM returned no response."
                 )
 
-                if not chunk_tool_calls:
-                    continue
-
-                for tool_call in chunk_tool_calls:
-
-                    if not isinstance(
-                        tool_call,
-                        dict,
-                    ):
-                        continue
-
-                    tool_call_id = tool_call.get("id")
-
-                    index = tool_call.get("index")
-
-                    key = tool_call_id or index
-
-                    if key is None:
-
-                        key = len(tool_call_map)
-
-                    if key not in tool_call_map:
-
-                        tool_call_map[key] = {
-                            "name": "",
-                            "args": {},
-                            "id": (
-                                tool_call_id or (f"tool_call_" f"{uuid.uuid4().hex}")
-                            ),
-                        }
-
-                    current = tool_call_map[key]
-
-                    if tool_call.get("name"):
-
-                        current["name"] = tool_call["name"]
-
-                    if tool_call_id:
-
-                        current["id"] = tool_call_id
-
-                    args = tool_call.get("args")
-
-                    if isinstance(
-                        args,
-                        dict,
-                    ):
-
-                        current["args"].update(args)
-
-                    elif isinstance(
-                        args,
-                        str,
-                    ):
-
-                        current["_raw_args"] = (
-                            current.get(
-                                "_raw_args",
-                                "",
-                            )
-                            + args
-                        )
-
-            # --------------------------------
-            # PARSE TOOL ARGUMENTS
-            # --------------------------------
-
-            for call in tool_call_map.values():
-
-                if not call.get("name"):
-                    continue
-
-                raw_args = call.pop(
-                    "_raw_args",
-                    None,
+                total_time = (
+                    time.perf_counter()
+                    - total_start
                 )
 
-                if raw_args and not call["args"]:
+                print(
+                    "TOTAL REQUEST TIME: "
+                    f"{total_time:.2f}s"
+                )
 
-                    try:
-
-                        parsed_args = json.loads(raw_args)
-
-                        if isinstance(
-                            parsed_args,
-                            dict,
-                        ):
-
-                            call["args"] = parsed_args
-
-                    except json.JSONDecodeError:
-
-                        call["args"] = {}
-
-                if not isinstance(
-                    call.get("args"),
-                    dict,
-                ):
-
-                    call["args"] = {}
-
-                tool_calls.append(call)
+                return
 
             # --------------------------------
+            # FIRST RESPONSE CONTENT
+            # --------------------------------
+
+            content = response.content or ""
+
+            print(
+                "FIRST RESPONSE CONTENT:",
+                repr(content),
+            )
+
+            # --------------------------------
+            # FIRST RESPONSE TOOL CALLS
+            # --------------------------------
+
+            print(
+                "FIRST RESPONSE TOOL CALLS:",
+                response.tool_calls,
+            )
+
+            # ================================================
             # NO TOOL CALL
-            # --------------------------------
+            # ================================================
 
-            if not tool_calls:
+            if not response.tool_calls:
+
+                print(
+                    "NO TOOL CALL DETECTED"
+                )
 
                 if content:
 
@@ -1061,37 +994,74 @@ class ChatService:
                         conversation_id=conversation_id,
                         history_messages=history_messages,
                         new_messages=[
-                            HumanMessage(content=message),
-                            AIMessage(content=content),
+                            HumanMessage(
+                                content=message
+                            ),
+                            AIMessage(
+                                content=content
+                            ),
                         ],
                     )
 
                     db.commit()
 
-                total_time = time.perf_counter() - total_start
+                total_time = (
+                    time.perf_counter()
+                    - total_start
+                )
 
-                print("TOTAL REQUEST TIME: " f"{total_time:.2f}s")
+                print(
+                    "TOTAL REQUEST TIME: "
+                    f"{total_time:.2f}s"
+                )
 
                 return
 
-            # --------------------------------
-            # AI TOOL-CALL MESSAGE
-            # --------------------------------
+            # ================================================
+            # TOOL CALL DETECTED
+            # ================================================
 
-            response = AIMessage(
-                content=content,
-                tool_calls=tool_calls,
+            print("\n================================")
+            print("TOOL CALLS DETECTED")
+            print("================================")
+
+            for tool_call in response.tool_calls:
+
+                print(
+                    "TOOL NAME:",
+                    tool_call.get("name"),
+                )
+
+                print(
+                    "TOOL ARGS:",
+                    tool_call.get("args"),
+                )
+
+                print(
+                    "TOOL ID:",
+                    tool_call.get("id"),
+                )
+
+            # ================================================
+            # EXECUTE TOOLS
+            # ================================================
+
+            print("\n================================")
+            print("EXECUTING TOOLS")
+            print("================================")
+
+            tool_messages = self.execute_tools(
+                response
             )
 
-            # --------------------------------
-            # EXECUTE TOOLS
-            # --------------------------------
+            print(
+                "TOOL RESULTS:",
+                tool_messages,
+            )
 
-            tool_messages = self.execute_tools(response)
-
-            # --------------------------------
+            # ================================================
             # FINAL LLM MESSAGES
-            # --------------------------------
+            # ================================================
 
             final_messages = [
                 *messages,
@@ -1099,9 +1069,13 @@ class ChatService:
                 *tool_messages,
             ]
 
-            # --------------------------------
+            print("\n================================")
+            print("FINAL LLM CALL")
+            print("================================")
+
+            # ================================================
             # FINAL LLM CALL
-            # --------------------------------
+            # ================================================
 
             final_start = time.perf_counter()
 
@@ -1109,13 +1083,29 @@ class ChatService:
 
             ai_content = ""
 
-            for chunk in llm_with_tools.stream(final_messages):
+            for chunk in llm_with_tools.stream(
+                final_messages
+            ):
+
+                # --------------------------------
+                # FINAL TIME TO FIRST TOKEN
+                # --------------------------------
 
                 if final_first_token is None:
 
-                    final_first_token = time.perf_counter() - final_start
+                    final_first_token = (
+                        time.perf_counter()
+                        - final_start
+                    )
 
-                    print("FINAL TIME TO FIRST TOKEN: " f"{final_first_token:.2f}s")
+                    print(
+                        "FINAL TIME TO FIRST TOKEN: "
+                        f"{final_first_token:.2f}s"
+                    )
+
+                # --------------------------------
+                # STREAM FINAL RESPONSE
+                # --------------------------------
 
                 if chunk.content:
 
@@ -1123,9 +1113,14 @@ class ChatService:
 
                     yield chunk.content
 
-            # --------------------------------
+            # ================================================
             # SAVE FINAL RESPONSE
-            # --------------------------------
+            # ================================================
+
+            print(
+                "FINAL RESPONSE:",
+                repr(ai_content),
+            )
 
             if ai_content:
 
@@ -1136,6 +1131,10 @@ class ChatService:
                     content=ai_content,
                 )
 
+                # --------------------------------
+                # CACHE RESPONSE
+                # --------------------------------
+
                 set_cached_response(
                     user_id=user_id,
                     conversation_id=conversation_id,
@@ -1143,86 +1142,67 @@ class ChatService:
                     response=ai_content,
                 )
 
+                # --------------------------------
+                # UPDATE HISTORY CACHE
+                # --------------------------------
+
                 self.update_history_cache(
                     conversation_id=conversation_id,
                     history_messages=history_messages,
                     new_messages=[
-                        HumanMessage(content=message),
+                        HumanMessage(
+                            content=message
+                        ),
+
                         response,
+
                         *tool_messages,
-                        AIMessage(content=ai_content),
+
+                        AIMessage(
+                            content=ai_content
+                        ),
                     ],
                 )
 
+            # --------------------------------
+            # COMMIT DATABASE
+            # --------------------------------
+
             db.commit()
 
-            total_time = time.perf_counter() - total_start
+            # --------------------------------
+            # TOTAL TIME
+            # --------------------------------
 
-            print("TOTAL REQUEST TIME: " f"{total_time:.2f}s")
+            total_time = (
+                time.perf_counter()
+                - total_start
+            )
 
-        except Exception:
+            print(
+                "TOTAL REQUEST TIME: "
+                f"{total_time:.2f}s"
+            )
+
+        except Exception as e:
+
+            print("\n================================")
+            print("STREAM CHAT ERROR")
+            print("================================")
+            print(
+                type(e).__name__,
+                ":",
+                str(e),
+            )
+            print("================================\n")
 
             db.rollback()
+
             raise
 
         finally:
 
             db.close()
-
-    # REFRESH REDIS HISTORY
-
-    def refresh_history_cache(
-        self,
-        db,
-        conversation_id: int,
-    ):
-
-        db_messages = ChatDatabase.get_messages(
-            db=db,
-            conversation_id=conversation_id,
-        )
-
-        messages: list[BaseMessage] = []
-
-        for db_message in db_messages:
-
-            role = db_message.role
-            content = db_message.content
-
-            if not content:
-                continue
-
-            if role == "user":
-
-                messages.append(HumanMessage(content=content))
-
-            elif role == "assistant":
-
-                messages.append(AIMessage(content=content))
-
-            elif role == "tool":
-
-                tool_call_id = getattr(
-                    db_message,
-                    "tool_call_id",
-                    None,
-                )
-
-                if tool_call_id:
-
-                    messages.append(
-                        ToolMessage(
-                            content=content,
-                            tool_call_id=tool_call_id,
-                        )
-                    )
-
-        set_cached_history(
-            conversation_id=conversation_id,
-            messages=messages,
-        )
-
-        return messages
 
     # ========================================================
     # RUN GRAPH
