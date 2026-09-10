@@ -175,6 +175,19 @@ TOOLS
 9. read_notion_page - fetch a SPECIFIC page once identified (from
    search_notion, a named page, or a pasted URL/ID). Typical flow:
    search_notion -> read_notion_page -> answer from that content only.
+10. search_places - find real-world places near a specified location.
+    Trigger for requests such as "find restaurants in Madurai",
+    "show cafes near Chennai", "find hospitals in Coimbatore",
+    "places to visit in Madurai", or similar location-based
+    place-search requests.
+
+    Required arguments:
+    - location: city, area, or locality
+    - query: type of place being searched
+
+    Use search_places when the user wants actual places/businesses
+    or locations, not when they are simply asking general factual
+    information about a city.
 
 "LATEST X" (e.g. "the latest Marvel movie", "the newest iPhone"):
 use get_news or web_search to identify the current item first, then
