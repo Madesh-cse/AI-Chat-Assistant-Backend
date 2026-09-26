@@ -40,9 +40,7 @@ from app.core.chat_history_cache import (
     set_cached_history,
 )
 
-# ============================================================
 # TOOLS
-# ============================================================
 
 TOOLS = {
     "get_weather": get_weather,
@@ -57,9 +55,7 @@ TOOLS = {
 }
 
 
-# ============================================================
 # SYSTEM MESSAGE
-# ============================================================
 
 SYSTEM_MESSAGE = SystemMessage(content="""
 You are a helpful, accurate AI assistant.
