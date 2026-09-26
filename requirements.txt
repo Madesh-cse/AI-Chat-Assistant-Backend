@@ -24,7 +24,7 @@ uvicorn==0.52.1
 
 sqlalchemy
 redis
-psycopg2-binary
+psycopg[binary]
 
 # LangChain
 langchain
