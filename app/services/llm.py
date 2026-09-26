@@ -17,11 +17,13 @@ from app.tools.notion import (
 
 
 llm = ChatOpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    model=os.getenv("OPENAI_MODEL"),
+    api_key=os.getenv("OPENROUTER_API_KEY"),
+    base_url="https://openrouter.ai/api/v1",
+    model=os.getenv(
+        "OPENROUTER_MODEL",
+    ),
     temperature=0.7,
     max_tokens=8192,
-    reasoning_effort="none"
 )
 
 
